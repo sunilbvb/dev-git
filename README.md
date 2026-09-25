@@ -153,7 +153,13 @@ You can customize app display names, icons, and colors by adding a configuration
 ]
 ```
 
-*(See `workspace_assets/apps_config.example.json` for a reference template).*
+### UI Design System Integration
+
+DevGit is styled with the [`developer-dashboard-ui`](https://github.com/sunilbvb/developer-dashboard-ui) design system. It is delivered via CDN for instant global updates with an offline fallback. To manually sync or update the local fallback stylesheet:
+
+```bash
+./scripts/sync-ui.sh
+```
 
 ---
 
