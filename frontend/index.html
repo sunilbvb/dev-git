@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DevGit - Multi-Repo Dashboard</title>
+    <link rel="stylesheet" href="/css/core.css?v=1.3.1">
+    <!-- UI Component Library — served from developer-dashboard-ui project (single source of truth) -->
+    <link rel="stylesheet" href="/developer-dashboard-ui/dist/ui.css?v=1.3.1">
+    <link rel="stylesheet" href="styles.css?v=1.3.1">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || localStorage.getItem('devgit_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+            window.addEventListener('message', function(e) {
+                if (e.data && e.data.type === 'THEME_CHANGE') {
+                    document.documentElement.setAttribute('data-theme', e.data.theme);
+                    if (document.body) document.body.setAttribute('data-theme', e.data.theme);
+                }
+            });
+        })();
+    </script>
+</head>
+<body>
+
+            <div class="ui-page-shell git-panel git-panel-page" id="gitPanel">
+                <div class="ui-page-header">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span class="ui-page-eyebrow" id="workspaceEyebrow" style="display: flex; align-items: center; gap: 8px;">
+                            WORKSPACE:
+                            <span id="currentWorkspacePath" style="font-family: monospace; color: #93c5fd; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); padding: 2px 8px; border-radius: 4px; font-weight: normal; max-width: 450px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="Current Workspace">Loading...</span>
+                            <button class="ui-button" data-variant="ghost" data-size="xs" id="gitSwitchWorkspaceBtn" type="button" style="padding: 2px 8px; height: auto; font-size: 11px; border: 1px solid rgba(147,197,253,0.3); border-radius: 4px; cursor: pointer;">Switch</button>
+                        </span>
+                    </div>
+                    <div class="ui-page-title-row">
+                        <h1 class="ui-page-title">Git Updates</h1>
+                        <div class="ui-page-actions">
+                            <label style="font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+                                <input type="checkbox" id="gitGlobalUseMelos" checked style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
+                                Melos Git Workflow (multi-repo)
+                            </label>
+                            <button class="ui-button" data-variant="secondary" data-size="sm" id="gitRefreshReposBtn" type="button">Refresh Repositories</button>
+                            <button class="ui-button" data-variant="primary" data-size="sm" id="gitFetchAllBtn" type="button">Git Fetch All</button>
+                        </div>
+                    </div>
+                    <p class="ui-page-subtitle" id="gitStatus">Track multi-repo branches, dirty working trees, and remote syncs.</p>
+                </div>
+                <div class="git-branch-popover hidden" id="gitBranchPopover">
+                    <div class="git-branch-popover-title" id="gitBranchPopoverTitle">Branches</div>
+                    <div class="git-branch-popover-list" id="gitBranchPopoverList"></div>
+                </div>
+                
+                <!-- ═══════ SCREEN 1: Repository Overview Grid ═══════ -->
+                <div id="gitScreen1">
+                <div class="git-sections">
+                    <div class="git-section">
+                        <div class="ui-section-header">
+                            <h3 class="ui-section-title">Apps</h3>
+                        </div>
+                        <div class="git-repo-list" id="gitRepoListApps">
+                            <div class="compact-app-card" style="min-height: 56px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; opacity: 0.5;">
+                                <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                    <span class="ui-skeleton" style="width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;"></span>
+                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                                        <span class="ui-skeleton ui-skeleton-line" style="width: 60%; height: 12px; margin: 0;"></span>
+                                        <span class="ui-skeleton ui-skeleton-line" style="width: 40%; height: 10px; margin: 0;"></span>
+                                    </div>
+                                </div>
+                                <span class="ui-skeleton" style="width: 45px; height: 16px; border-radius: 10px; flex-shrink: 0;"></span>
+                            </div>
+                            <div class="compact-app-card" style="min-height: 56px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; opacity: 0.5;">
+                                <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                    <span class="ui-skeleton" style="width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;"></span>
+                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                                        <span class="ui-skeleton ui-skeleton-line" style="width: 60%; height: 12px; margin: 0;"></span>
+                                        <span class="ui-skeleton ui-skeleton-line" style="width: 40%; height: 10px; margin: 0;"></span>
+                                    </div>
+                                </div>
+                                <span class="ui-skeleton" style="width: 45px; height: 16px; border-radius: 10px; flex-shrink: 0;"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="git-section">
+                        <div class="ui-section-header">
+                            <h3 class="ui-section-title">Packages</h3>
+                        </div>
+                        <div class="git-repo-list" id="gitRepoListPackages">
+                            <div class="compact-app-card" style="min-height: 56px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; opacity: 0.5;">
+                                <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                    <span class="ui-skeleton" style="width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;"></span>
+                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                                        <span class="ui-skeleton ui-skeleton-line" style="width: 60%; height: 12px; margin: 0;"></span>
+                                        <span class="ui-skeleton ui-skeleton-line" style="width: 40%; height: 10px; margin: 0;"></span>
+                                    </div>
+                                </div>
+                                <span class="ui-skeleton" style="width: 45px; height: 16px; border-radius: 10px; flex-shrink: 0;"></span>
+                            </div>
+                            <div class="compact-app-card" style="min-height: 56px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; opacity: 0.5;">
+                                <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                                    <span class="ui-skeleton" style="width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;"></span>
+                                    <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                                        <span class="ui-skeleton ui-skeleton-line" style="width: 60%; height: 12px; margin: 0;"></span>
+                                        <span class="ui-skeleton ui-skeleton-line" style="width: 40%; height: 10px; margin: 0;"></span>
+                                    </div>
+                                </div>
+                                <span class="ui-skeleton" style="width: 45px; height: 16px; border-radius: 10px; flex-shrink: 0;"></span>
+                            </div>
+                        </div>
+                    </div>
+ 
+                    <!-- Gitflow Developer Console Section -->
+                    <div class="git-section hidden" id="gitflowDashboardSection" style="margin-top: 24px;">
+                        <div class="git-section-title" id="gitflowTitle" style="font-size: 14px; font-weight: 800; color: #3b82f6; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 8px; margin-bottom: 12px;">
+                            <span>🌌 OBSIDIAN NEBULA: GITFLOW DEVELOPER CONSOLE</span>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <button class="ui-button" data-variant="primary" data-size="sm" type="button" onclick="openGitflowTagModal()">🏷️ Tag Release</button>
+                                <button class="ui-button" data-variant="secondary" data-size="sm" type="button" onclick="openGitflowViewTagsModal()">👁️ View Tags</button>
+                                <button class="ui-button" data-variant="outline" data-size="sm" id="gitflowGuideToggleBtn" type="button" onclick="toggleGitflowGuide()">📖 Gitflow Guide</button>
+                                <button class="ui-button" data-variant="secondary" data-size="sm" type="button" onclick="openGitflowSettingsModal()">⚙️ Settings</button>
+                                <span id="gitflowActiveRepoLabel" style="font-size: 11px; color: #94a3b8; background: rgba(59, 130, 246, 0.1); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(59, 130, 246, 0.2); font-weight: 600;">No Repo Selected</span>
+                            </div>
+                        </div>
+
+                        <!-- Gitflow strategy and release guide panel -->
+                        <div id="gitflowGuidePanel" class="gitflow-panel hidden" style="margin: 10px 0; background: #070915; border: 1px solid #1c2759; max-height: 450px; overflow-y: auto; padding: 18px; font-size: 12px; line-height: 1.6; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1c2759; padding-bottom: 8px; margin-bottom: 14px;">
+                                <h3 style="margin:0; font-size: 13px; color: #8ab4ff; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">📖 Gitflow Strategy & Release Guide</h3>
+                                <button type="button" onclick="toggleGitflowGuide()" style="background:transparent; border:none; color:#a0aec0; cursor:pointer; font-size:18px; line-height:1;">&times;</button>
+                            </div>
+                            
+                            <div class="gitflow-guide-content" style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 20px; color: #cbd5e1;">
+                                <!-- Left Column: Strategy Guide -->
+                                <div style="border-right: 1px solid #1c2759; padding-right: 20px;">
+                                    <h4 style="margin:0 0 8px; color: #fff; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px; font-size:12px;">1. Permanent Primary Branches</h4>
+                                    <ul style="margin: 0 0 12px; padding-left: 18px;">
+                                        <li><strong style="color: #48bb78;">main</strong>: Stable production-ready code. Commits are tagged.</li>
+                                        <li><strong style="color: #3182ce;">develop</strong>: Integration branch. Gathering place for completed features.</li>
+                                    </ul>
+
+                                    <h4 style="margin:0 0 8px; color: #fff; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px; font-size:12px;">2. Supporting Branches (Temporary)</h4>
+                                    <table class="ui-table" data-variant="hover compact" style="font-size: 11px; margin-bottom: 12px; width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Type</th>
+                                                <th>Source</th>
+                                                <th>Merge Target</th>
+                                                <th>Purpose</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td style="color:#d69e2e; font-weight:700;">feature/vX.X.X/*</td>
+                                                <td>develop</td>
+                                                <td>develop</td>
+                                                <td>Developing new features in isolation.</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color:#38b2ac; font-weight:700;">release/vX.X.X/*</td>
+                                                <td>develop</td>
+                                                <td>main & develop</td>
+                                                <td>Preparing release; bug fixes & docs only.</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color:#e53e3e; font-weight:700;">hotfix/vX.X.X/*</td>
+                                                <td>main</td>
+                                                <td>main & develop</td>
+                                                <td>Emergency fixes for critical prod bugs.</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="color:#b7791f; font-weight:700;">bugfix/vX.X.X/*</td>
+                                                <td>develop</td>
+                                                <td>develop</td>
+                                                <td>Minor non-critical bug fixes.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h4 style="margin:0 0 8px; color: #fff; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px; font-size:12px;">3. Standard Lifecycle</h4>
+                                    <ol style="margin: 0 0 12px; padding-left: 18px;">
+                                        <li>Initialize <code style="color:#8ab4ff;">develop</code> from <code style="color:#48bb78;">main</code>.</li>
+                                        <li>Create <code style="color:#d69e2e;">feature/*</code> from <code style="color:#8ab4ff;">develop</code> &rarr; merge back when done.</li>
+                                        <li>Initiate <code style="color:#38b2ac;">release/*</code> from <code style="color:#8ab4ff;">develop</code>.</li>
+                                        <li>QA Testing on release &rarr; Merge to <code style="color:#48bb78;">main</code> (tag it) & <code style="color:#8ab4ff;">develop</code>.</li>
+                                    </ol>
+
+                                    <h4 style="margin:0 0 8px; color: #fff; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px; font-size:12px;">4. Testing & Bug Management</h4>
+                                    <p style="margin: 0 0 8px;"><strong>Internal Testing Integration</strong>: Quality checks happen inside the release branch. Build appbundle/IPA from release branch. Tester bugs are resolved directly on release branch. Merge to main only after green signal.</p>
+                                    <p style="margin: 0;"><strong>Hotfix vs. Bugfix</strong>: Critical production bugs use <strong style="color:#e53e3e;">hotfix/</strong> (branched from main). Minor UI/typo fixes use <strong style="color:#b7791f;">bugfix/</strong> (branched from develop, deferred to next release).</p>
+                                </div>
+
+                                <!-- Right Column: Tagging & Release -->
+                                <div>
+                                    <h4 style="margin:0 0 8px; color: #fff; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 4px; font-size:12px;">🚀 Git Release Workflow: v1.1.x</h4>
+                                    
+                                    <h5 style="margin: 6px 0 4px; color:#8ab4ff; font-size:11.5px;">Option 1: The Terminal (Fast & Local)</h5>
+                                    <pre style="background:rgba(0,0,0,0.3); padding: 8px; border-radius:6px; font-family:'JetBrains Mono', monospace; font-size:10px; border:1px solid #1c2759; margin:0 0 10px; color: #e2e8f0; overflow-x:auto;">git checkout main
+git pull origin main
+git tag -a v1.1.4 -m "Release version 1.1.4"
+git push origin v1.1.4</pre>
+
+                                    <h5 style="margin: 6px 0 4px; color:#8ab4ff; font-size:11.5px;">Option 2: GitHub Releases (Formal & Public)</h5>
+                                    <ol style="margin: 0 0 12px; padding-left: 18px; font-size: 11px;">
+                                        <li>Go to Releases in GitHub &rarr; "Create a new release".</li>
+                                        <li>Type version (e.g., <code style="color:#48bb78;">v1.1.4</code>).</li>
+                                        <li>Release Title: e.g. <code style="color:#e2e8f0;">v1.1.4 - The UI Update</code>.</li>
+                                        <li>Generate release notes, polish with sections:
+                                            <ul style="padding-left:12px; margin: 4px 0; list-style-type: none;">
+                                                <li>✨ New features</li>
+                                                <li>🐛 Bug fixes</li>
+                                                <li>⚠️ Breaking changes</li>
+                                            </ul>
+                                        </li>
+                                        <li>Upload compiled APK/bundles &rarr; Click "Publish release".</li>
+                                    </ol>
+
+                                    <h5 style="margin: 6px 0 4px; color:#8ab4ff; font-size:11.5px;">Quick Reference Table</h5>
+                                    <table class="gitflow-table" style="font-size: 10.5px; width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Step</th>
+                                                <th>Action</th>
+                                                <th>Command / Location</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>1. Prep</td>
+                                                <td>Update main</td>
+                                                <td><code>git pull origin main</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>2. Tag</td>
+                                                <td>Create version</td>
+                                                <td><code>git tag -a v1.1.4 -m "..."</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>3. Push</td>
+                                                <td>Send to Cloud</td>
+                                                <td><code>git push origin v1.1.4</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td>4. Release</td>
+                                                <td>Package releases</td>
+                                                <td>GitHub UI &rarr; Releases</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                            </div>
+                        </div>
+                        </div>
+                        <div id="gitflowConsole" class="gitflow-grid"></div>
+                    </div>
+                    <div class="ui-card git-section" style="margin-top:20px; background: transparent; border: none; box-shadow: none;">
+                        <div class="git-section-title" style="color: #f8fafc; font-size: 14px; font-weight: 700; margin-bottom: 8px;">💻 Git Terminal Console</div>
+                        <div class="ui-terminal" style="overflow: hidden;">
+                            <div class="ui-terminal-header" style="padding: 10px 16px;">
+                                <div class="ui-terminal-actions">
+                                    <span class="ui-terminal-dot" data-action="close"></span>
+                                    <span class="ui-terminal-dot" data-action="minimize"></span>
+                                    <span class="ui-terminal-dot" data-action="maximize"></span>
+                                </div>
+                                <div class="ui-terminal-title" style="color: #f8fafc; font-weight: 600;">Interactive Git Console</div>
+                                <div class="git-terminal-controls" style="display: flex; gap: 8px; align-items: center; z-index: 2;">
+                                    <label style="font-size:12px; color:#94a3b8; display:flex; align-items:center; gap:6px;">
+                                        Target Repo:
+                                        <select id="gitTerminalRepoSelect" class="ui-select" style="min-width:180px; padding: 4px 8px; font-size:12px;">
+                                            <option value="">-- Select Repo --</option>
+                                        </select>
+                                    </label>
+                                    <button class="ui-button" data-variant="outline" data-size="sm" id="gitTerminalClearBtn" type="button">🗑 Clear Console</button>
+                                    <button class="ui-button" data-variant="danger" data-size="sm" id="gitTerminalKillBtn" type="button" disabled>⏹ Stop Job</button>
+                                </div>
+                            </div>
+                            <div class="ui-terminal-body git-terminal-output" id="gitTerminalOutput" style="font-family: 'JetBrains Mono', monospace;">Welcome to Interactive Git Console. Select a repository above to begin.</div>
+                            <div class="git-terminal-input-row" style="background: #1e293b; border-top: 1px solid #334155;">
+                                <span class="git-terminal-prompt" id="gitTerminalPrompt">git-repo $</span>
+                                <input type="text" id="gitTerminalInput" class="ui-input" placeholder="Select a repository above to enable terminal..." disabled />
+                                <button class="ui-button" data-variant="primary" data-size="sm" id="gitTerminalSendBtn" type="button" disabled>Execute</button>
+                            </div>
+                            <div class="git-terminal-suggestions" style="background: #0f172a; border-top: 1px dashed #334155;">
+                                <span class="git-terminal-suggestions-title" style="color: #64748b;">Quick commands:</span>
+                                <button class="ui-button" data-variant="ghost" data-size="sm" data-cmd="git status">git status</button>
+                                <button class="ui-button" data-variant="ghost" data-size="sm" data-cmd="git branch -a">git branch -a</button>
+                                <button class="ui-button" data-variant="ghost" data-size="sm" data-cmd="git log -n 5 --oneline">git log (last 5)</button>
+                                <button class="ui-button" data-variant="ghost" data-size="sm" data-cmd="git diff">git diff</button>
+                                <button class="ui-button" data-variant="ghost" data-size="sm" data-cmd="git remote -v">git remote -v</button>
+                                <button class="ui-button" data-variant="ghost" data-size="sm" data-cmd="git stash list">git stash list</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- end #gitScreen1 -->
+
+                <!-- ═══════ SCREEN 2: Repository Branch Details ═══════ -->
+                <div id="gitScreen2" class="hidden">
+                    <!-- Screen 2 Top Navigation Header Card -->
+                    <div class="ui-card" data-variant="flat" style="margin-bottom: 20px; padding: 16px; background: rgba(15, 23, 42, 0.6); border-color: var(--ui-border-color, #1e293b);">
+                        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <button class="ui-button" data-variant="outline" data-size="sm" id="gs2BackBtn" type="button">← Back to Repositories</button>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <h2 class="ui-card-title" id="gs2RepoName" style="font-size: 16px; font-weight: 700; color: #f8fafc; margin: 0;">Repository</h2>
+                                    <span class="ui-badge hidden" data-variant="primary" id="gs2ActiveBranch"></span>
+                                    <span class="ui-badge" data-variant="success" id="gs2StatusBadge">Loading…</span>
+                                    <span class="ui-badge" data-variant="neutral" id="gs2BranchCount"></span>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <button class="ui-button" data-variant="outline" data-size="sm" type="button" onclick="openGitflowTagModal()">🏷️ Tag Release</button>
+                                <button class="ui-button" data-variant="secondary" data-size="sm" type="button" onclick="openGitflowViewTagsModal()">👁️ View Tags</button>
+                                <button class="ui-button" data-variant="primary" data-size="sm" type="button" onclick="openGitflowBranchModal()">+ Start Branch</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Branch search bar -->
+                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 20px;">
+                        <div style="position: relative; flex: 1;">
+                            <input type="text" id="gs2SearchInput" class="ui-input" placeholder="🔍 Search branches by name, feature, or version..." autocomplete="off" style="width: 100%; padding-right: 32px;" />
+                            <button class="ui-button hidden" data-variant="ghost" data-size="sm" id="gs2SearchClear" type="button" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 2px 6px; font-size: 12px;">✕</button>
+                        </div>
+                    </div>
+
+                    <!-- Body content -->
+                    <div class="gs2-body" id="gs2Body">
+                        <div class="gs2-spinner" id="gs2Spinner" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; gap: 12px; color: #94a3b8;">
+                            <span class="ui-loader" data-size="lg" data-variant="primary"></span>
+                            <span style="font-size: 13px; font-weight: 500;">Loading branch details…</span>
+                        </div>
+                    </div>
+                </div><!-- end #gitScreen2 -->
+            </div>
+
+            <!-- Gitflow New Branch Modal -->
+            <div class="modal hidden" id="gitflowNewBranchModal">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">🌌 Start New Gitflow Branch</h3>
+                        <button type="button" class="ui-modal-close" id="gitflowNewBranchClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Branch Type</label>
+                            <div style="display: flex; gap: 8px;">
+                                <select id="gitflowBranchType" class="ui-select" style="flex: 1;">
+                                    <option value="feature">feature (new features)</option>
+                                    <option value="release">release (production release)</option>
+                                    <option value="hotfix">hotfix (emergency fix)</option>
+                                    <option value="bugfix">bugfix (bug fix)</option>
+                                    <option value="custom">custom (custom prefix)</option>
+                                </select>
+                                <input type="text" id="gitflowBranchTypeCustom" placeholder="e.g. experiment" class="ui-input hidden" style="flex: 1;" />
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Base Branch (Enforced Rule)</label>
+                            <div id="gitflowBaseBranchField"></div>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;" id="gitflowVersionScopeField">
+                                <label style="font-size: 12px; font-weight: 600; color: #94a3b8;" id="gitflowVersionScopeLabel">Version/Scope (e.g. v1.1.0)</label>
+                                <input type="text" id="gitflowVersionScope" placeholder="v1.1.0" class="ui-input" value="v1.1.0" />
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 6px; flex: 2;">
+                                <label style="font-size: 12px; font-weight: 600; color: #94a3b8;" id="gitflowTicketLabel">Ticket ID or Scope Name</label>
+                                <input type="text" id="gitflowTicketName" placeholder="auth-migration" class="ui-input" value="auth-migration" />
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Target Branch Name</label>
+                            <input type="text" id="gitflowTargetBranchName" readonly class="ui-input" style="color: #38b2ac;" value="" />
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="gitflowCheckoutNewBranch" checked style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
+                            <label for="gitflowCheckoutNewBranch" style="font-size: 11px; font-weight: 500; color: #cbd5e1; cursor: pointer; user-select: none;">Automatically check out new branch</label>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;" id="gitflowUseMelosContainer">
+                            <input type="checkbox" id="gitflowUseMelos" checked style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
+                            <label for="gitflowUseMelos" style="font-size: 11px; font-weight: 500; color: #cbd5e1; cursor: pointer; user-select: none;">Use Melos Git Workflow (multi-repo scope)</label>
+                        </div>
+                        <div id="gitflowMelosNotice" style="display: none; font-size: 11px; color: #94a3b8; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; padding: 8px 10px; border-radius: 0 4px 4px 0; line-height: 1.4;">
+                            💡 <strong>Melos Naming:</strong> Branch will be created as <code id="gitflowMelosAppBranch" style="color: #8ab4ff; font-family: monospace;">features/v1.1.3/...</code> in the main app, and auto-nested as <code id="gitflowMelosPkgBranch" style="color: #bc72ff; font-family: monospace;">features/app-name/v1.1.3/...</code> in packages to prevent namespace clashes.
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px; background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px;">
+                            <label style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase;">Command Preview</label>
+                            <code id="gitflowCommandPreview" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #cbd5e1; word-break: break-all;">git checkout -b features/v1.1.0/auth-migration develop</code>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitflowNewBranchCancel">Cancel</button>
+                        <button class="ui-button" data-variant="primary" type="button" id="gitflowNewBranchSubmit">Create Branch</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Git Conflict Resolution Modal -->
+            <div class="modal hidden" id="gitConflictModal">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title" style="color: #ff8a8a;">⚠️ Conflict Resolution Assistant</h3>
+                        <button type="button" class="ui-modal-close" id="gitConflictModalClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="font-size: 13px; color: #cbd5e1;">The repository has merge conflicts. Resolve them below using either <strong>Ours</strong> (keep local changes) or <strong>Theirs</strong> (take incoming changes) for each file.</div>
+                        <div id="gitConflictFileList" style="display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto;">
+                            <div style="color: #64748b; padding: 8px; text-align: center;">No conflicting files detected.</div>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitConflictModalCancel">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gitflow New Tag Modal -->
+            <div class="modal hidden" id="gitflowNewTagModal">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">🏷️ Publish New Git Tag (Release)</h3>
+                        <button type="button" class="ui-modal-close" id="gitflowNewTagClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div id="gitflowTagInfoNote" style="font-size: 11px; color: #94a3b8; background: rgba(59, 130, 246, 0.08); padding: 10px 12px; border-radius: 6px; border-left: 3px solid #3b82f6; line-height: 1.5;">
+                            💡 <strong>Release Tag Convention:</strong> App repository will be tagged as <code id="gitflowTagAppPreview">v1.0.4+89</code>. Dependency packages will be tagged as <code id="gitflowTagPkgPreview">pkg-name-v1.0.4+89</code>.
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Tag Name / Version (leave blank to auto-detect from pubspec.yaml)</label>
+                            <input type="text" id="gitflowTagNameInput" placeholder="v1.0.4+89" class="ui-input" value="" />
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Release Message / Changelog</label>
+                            <textarea id="gitflowTagMessageInput" placeholder="Release changelog details...&#10;1. Fixes & updates&#10;2. General improvements" rows="4" class="ui-input" style="font-family: inherit; resize: vertical;"></textarea>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                                <input type="checkbox" id="gitflowTagUseMelos" checked style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
+                                Melos Git Workflow (create tag across all package dependencies in scope)
+                            </label>
+                            <label style="font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                                <input type="checkbox" id="gitflowTagPushRemote" style="width: 14px; height: 14px; cursor: pointer;" />
+                                Push tags to remote (origin) immediately
+                            </label>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitflowNewTagCancel">Cancel</button>
+                        <button class="ui-button" data-variant="primary" type="button" id="gitflowNewTagSubmit">Create Tag</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gitflow View Tags Modal -->
+            <div class="modal hidden" id="gitflowViewTagsModal">
+                <div class="ui-modal" data-size="full" style="display: flex; flex-direction: column;">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">🏷️ Release Tags Manager</h3>
+                        <button type="button" class="ui-modal-close" id="gitflowViewTagsClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0;">
+                        <div id="gitflowViewTagsSpinner" style="text-align: center; padding: 20px; color: #3b82f6;">
+                            <div class="spinner-border text-primary" role="status" style="display:inline-block; width: 24px; height: 24px; border: 3px solid rgba(59,130,246,0.25); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <div style="margin-top:10px; font-size:12px;">Loading release tags from repositories...</div>
+                        </div>
+                        <div id="gitflowViewTagsEmpty" class="hidden" style="text-align: center; padding: 30px; color: #64748b; font-size: 13px;">
+                            No release tags found in this repository scope.
+                        </div>
+                        <div id="gitflowViewTagsContainer" class="hidden" style="flex: 1; min-height: 0; overflow-y: auto;">
+                            <table class="ui-table" data-variant="hover striped" style="width: 100%;">
+                                <thead>
+                                    <tr>
+                                        <th>Version / Tag Name</th>
+                                        <th>Release Changelog Message</th>
+                                        <th>Sync Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="gitflowViewTagsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitflowViewTagsCancel">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gitflow Edit Tag Modal -->
+            <div class="modal hidden" id="gitflowEditTagModal">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">✏️ Edit Local Tag</h3>
+                        <button type="button" class="ui-modal-close" id="gitflowEditTagClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Tag Name / Version</label>
+                            <input type="text" id="gitflowEditTagNameInput" class="ui-input" />
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Release Message / Changelog</label>
+                            <textarea id="gitflowEditTagMessageInput" rows="4" class="ui-input" style="font-family: inherit; resize: vertical;"></textarea>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitflowEditTagCancel">Cancel</button>
+                        <button class="ui-button" data-variant="primary" type="button" id="gitflowEditTagSubmit">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gitflow Settings Modal -->
+            <div class="modal hidden" id="gitflowSettingsModal">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">⚙️ Gitflow Settings</h3>
+                        <button type="button" class="ui-modal-close" id="gitflowSettingsClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">GitHub Personal Access Token (PAT)</label>
+                            <input type="password" id="gitflowSettingsTokenInput" placeholder="ghp_xxxxxxxxxxxx" class="ui-input" />
+                            <div style="font-size: 11px; color: #64748b; line-height: 1.4; margin-top: 4px;">
+                                Required for background remote operations (Pull, Push, Create release, etc.). 
+                                You can generate a token on GitHub under <strong>Settings &rarr; Developer Settings &rarr; Personal Access Tokens</strong> with <code>repo</code> scope.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitflowSettingsCancel">Cancel</button>
+                        <button class="ui-button" data-variant="primary" type="button" id="gitflowSettingsSubmit">Save Settings</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gitflow Create Release Modal -->
+            <div class="modal hidden" id="gitflowCreateReleaseModal">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">🚀 Create GitHub Release</h3>
+                        <button type="button" class="ui-modal-close" id="gitflowCreateReleaseClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Tag Name</label>
+                            <input type="text" id="gitflowReleaseTagInput" readonly class="ui-input" style="color: #3b82f6;" />
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Release Title</label>
+                            <input type="text" id="gitflowReleaseTitleInput" placeholder="e.g. Release v1.0.5" class="ui-input" />
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Changelog / Release Notes</label>
+                            <textarea id="gitflowReleaseBodyInput" rows="5" placeholder="Describe the changes in this release..." class="ui-input" style="font-family: inherit; resize: vertical;"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 16px;">
+                            <label style="font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                                <input type="checkbox" id="gitflowReleaseDraft" style="width: 14px; height: 14px; cursor: pointer;" />
+                                Save as Draft
+                            </label>
+                            <label style="font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+                                <input type="checkbox" id="gitflowReleasePrerelease" style="width: 14px; height: 14px; cursor: pointer;" />
+                                Mark as Pre-release
+                            </label>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitflowCreateReleaseCancel">Cancel</button>
+                        <button class="ui-button" data-variant="primary" type="button" id="gitflowCreateReleaseSubmit">Publish Release</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Git Rename Branch Modal -->
+            <div class="modal hidden" id="gitRenameBranchModal">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">⟲ Rename Branch</h3>
+                        <button type="button" class="ui-modal-close" id="gitRenameBranchClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Current Branch</label>
+                            <input type="text" id="gitRenameOldBranch" readonly class="ui-input" style="color: #3b82f6;" />
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">New Branch Name</label>
+                            <input type="text" id="gitRenameNewBranch" placeholder="features/v1.0.3/appsflyer-campaign-events" class="ui-input" />
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="gitRenameRemoteBranch" style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
+                            <label for="gitRenameRemoteBranch" style="font-size: 11px; font-weight: 500; color: #cbd5e1; cursor: pointer; user-select: none;">Also rename on remote origin</label>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="gitRenameUseMelos" checked style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
+                            <label for="gitRenameUseMelos" style="font-size: 11px; font-weight: 500; color: #cbd5e1; cursor: pointer; user-select: none;">Use Melos Git Workflow (multi-repo scope)</label>
+                        </div>
+                        <div style="font-size: 11px; color: #94a3b8; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; padding: 8px 10px; border-radius: 0 4px 4px 0; line-height: 1.4;">
+                            Local rename always runs first. If you check the remote option, DevGit will push the new branch name and delete the old remote branch too.
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px; background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 10px;">
+                            <label style="font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase;">Command Preview</label>
+                            <code id="gitRenameBranchPreview" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #cbd5e1; word-break: break-all;">melos run git:rename_branch:all -- old-branch new-branch</code>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitRenameBranchCancel">Cancel</button>
+                        <button class="ui-button" data-variant="primary" type="button" id="gitRenameBranchSubmit">Rename Branch</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Beautiful Custom Confirmation Modal -->
+            <div class="modal hidden" id="gitConfirmModal" style="z-index: 999999;">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title" id="gitConfirmTitle">⚠️ Confirmation Required</h3>
+                        <button type="button" class="ui-modal-close" id="gitConfirmClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div id="gitConfirmMessage" style="font-size: 13px; color: #cbd5e1; line-height: 1.6; white-space: pre-wrap;"></div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitConfirmCancelBtn">Cancel</button>
+                        <button class="ui-button" data-variant="primary" type="button" id="gitConfirmOkBtn">Confirm</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Beautiful Custom Alert Modal -->
+            <div class="modal hidden" id="gitAlertModal" style="z-index: 9999999;">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title" style="color: #ff6b6b;" id="gitAlertTitle">⚠️ Notice</h3>
+                        <button type="button" class="ui-modal-close" id="gitAlertClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: 450px;">
+                        <div id="gitAlertMessage" style="font-size: 13px; color: #cbd5e1; line-height: 1.6; padding-right: 4px;"></div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="danger" type="button" id="gitAlertOkBtn" style="min-width: 80px;">OK</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Git Branch Commits Modal -->
+            <div class="modal hidden" id="gitCommitsModal" style="z-index: 99999;">
+                <div class="ui-modal" data-size="lg">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title" id="gitCommitsModalTitle">🕒 Commit History</h3>
+                        <button type="button" class="ui-modal-close" id="gitCommitsModalClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+                        <input type="text" id="gitCommitsSearchInput" class="ui-input" placeholder="Filter by message, author, or hash…" aria-label="Filter commits by message, author, or hash" autocomplete="off" style="display: none;" />
+                        <div id="gitCommitsLoading" style="text-align: center; color: #94a3b8; padding: 20px;">
+                            <span>Loading commits...</span>
+                        </div>
+                        <div id="gitCommitsEmpty" class="hidden" style="text-align: center; color: #94a3b8; padding: 20px; font-size: 12px;">No commits match your filter.</div>
+                        <div id="gitCommitsList" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px;">
+                            <!-- Commits will be loaded here -->
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitCommitsModalClose2" onclick="document.getElementById('gitCommitsModal').classList.add('hidden')">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Git Merge Branch Modal -->
+            <div class="modal hidden" id="gitMergeModal" style="z-index: 99999;">
+                <div class="ui-modal" data-size="md">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">🔀 Merge Branch</h3>
+                        <button type="button" class="ui-modal-close" id="gitMergeModalClose">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">From</label>
+                            <div id="gitMergeSourceField"></div>
+                        </div>
+                        <div style="display: flex; justify-content: center; margin: -4px 0;">
+                            <button type="button" id="gitMergeSwapBtn" title="Swap FROM and INTO branches" aria-label="Swap FROM and INTO branches"
+                                style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--ui-border-color, #334155); background: var(--ui-bg-muted, #1e293b); color: #94a3b8; cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease, transform 0.2s ease;">
+                                <i data-lucide="arrow-up-down" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Into</label>
+                            <div id="gitMergeTargetField"></div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+                            <input type="checkbox" id="gitMergeUseMelos" checked style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
+                            <label for="gitMergeUseMelos" style="font-size: 11px; font-weight: 500; color: #cbd5e1; cursor: pointer; user-select: none;">Use Melos Git Workflow (multi-repo scope)</label>
+                        </div>
+                        <div style="font-size: 11px; color: #94a3b8; background: rgba(59, 130, 246, 0.08); border-left: 3px solid #3b82f6; padding: 8px 10px; border-radius: 0 4px 4px 0; line-height: 1.4;">
+                            This will pull the latest target branch from origin, merge the source branch, and push the target branch back to origin if successful.
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitMergeCancel">Cancel</button>
+                        <button class="ui-button" data-variant="primary" type="button" id="gitMergeSubmit">Merge Branch</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Switch Workspace -->
+            <div class="ui-modal-backdrop hidden" id="gitSwitchWorkspaceModal">
+                <div class="ui-modal-card" style="max-width: 520px;">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">Switch Workspace</h3>
+                        <button class="ui-modal-close" type="button" id="gitSwitchWorkspaceClose" aria-label="Close">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+                        <p style="font-size: 13px; color: #94a3b8; margin: 0;">Enter the absolute path to any repository or monorepo workspace to manage its Git state:</p>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Workspace Directory</label>
+                            <input type="text" id="gitSwitchWorkspaceInput" class="ui-input" placeholder="/path/to/my-monorepo" style="font-family: monospace; font-size: 13px;" />
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitSwitchWorkspaceCancel">Cancel</button>
+                        <button class="ui-button" data-variant="primary" type="button" id="gitSwitchWorkspaceSubmit">Switch Workspace</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toast Container -->
+            <div id="gitflowToastContainer" style="position: fixed; top: 16px; right: 16px; z-index: 100000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>
+            </div>
+
+    <script src="/js/core_utils.js"></script>
+    <script src="gitflow_panel.js?v=1.3.1"></script>
+    <script src="app.js?v=1.3.1"></script>
+    <script>
+        if (typeof lucide !== 'undefined' && lucide && lucide.createIcons) {
+            lucide.createIcons();
+        }
+    </script>
+</body>
+</html>

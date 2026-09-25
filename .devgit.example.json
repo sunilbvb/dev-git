@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "name": "My Monorepo",
+  "groups": {
+    "Apps": ["apps/*"],
+    "Packages": ["packages/*"],
+    "Services": ["services/*"]
+  },
+  "include": [
+    "apps",
+    "packages",
+    "libs"
+  ],
+  "exclude": [
+    "temp",
+    "experimental",
+    "dist"
+  ]
+}

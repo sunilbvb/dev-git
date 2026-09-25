@@ -1,0 +1,16 @@
+[
+  {
+    "id": "sample_app",
+    "name": "Sample App",
+    "color": "#3b82f6",
+    "icon": "package",
+    "version": "1.0.0"
+  },
+  {
+    "id": "sample_package",
+    "name": "Sample Package",
+    "color": "#10b981",
+    "icon": "layers",
+    "version": "1.0.0"
+  }
+]

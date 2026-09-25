@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devgit-dashboard"
+version = "1.0.0"
+description = "A lightweight, standalone web dashboard for managing Git repositories across monorepos and multi-repo workspaces."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "DevGit Contributors" }
+]
+keywords = ["git", "monorepo", "dashboard", "melos", "multi-repo", "developer-tools"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Version Control :: Git"
+]
+
+[project.scripts]
+devgit = "backend.server:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.*", "**/*.*"]
