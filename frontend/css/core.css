@@ -2,7 +2,7 @@
    DevGit Dashboard - Core Styles
    ========================================== */
 
-/* Custom CSS Variables & Design System — developer-dashboard-ui aligned */
+/* Custom CSS Variables & Design System */
 :root {
     --bg-base: var(--ui-bg-canvas, #0b0f19);
     --bg-surface: var(--ui-bg-surface, #0f172a);

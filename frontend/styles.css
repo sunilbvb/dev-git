@@ -1,5 +1,5 @@
-/* Direct import from developer-dashboard-ui project */
-@import url('/developer-dashboard-ui/dist/ui.css');
+/* Built-in UI component library */
+@import url('/css/ui.css');
 
 /* Standalone resilience: keep Git controls styled even if the shared UI bundle
    is stale, cached, or unavailable while running this feature by itself. */
@@ -409,7 +409,7 @@ body {
 }
 
 /* Branch cards (Pending Actions + grouped branch lists) reuse the shared
-   .ui-card component from developer-dashboard-ui. Recolor its interactive
+   .ui-card component from the built-in UI design system. Recolor its interactive
    accent from the library default (indigo) to the blue used everywhere else
    (.compact-app-card / .git-repo) so every selectable card in the app matches. */
 /* Branch cards reuse the shared .ui-card component, which defaults to a

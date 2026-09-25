@@ -366,7 +366,7 @@ function _clearAiState(repoPath, branch) {
 
 
 
-/** Render shimmer skeleton cards from developer-dashboard-ui while loading repos */
+/** Render shimmer skeleton cards while loading repos */
 function renderGitShimmers() {
     const listApps = document.getElementById('gitRepoListApps');
     const listPackages = document.getElementById('gitRepoListPackages');
@@ -949,7 +949,7 @@ function _gs2BuildGroup(rawPath, group, head) {
         }
     }
 
-    // Helper function to build cards list HTML using exact developer-dashboard-ui components
+    // Helper function to build cards list HTML using UI components
     const buildCardsHtml = (branchesList) => {
         return branchesList.map(b => {
             const name = escapeHtml(b.name || '');
