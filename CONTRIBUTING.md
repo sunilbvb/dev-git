@@ -19,6 +19,7 @@ We welcome contributions of all kinds: bug fixes, documentation improvements, UI
    - [Python (Backend)](#python-backend)
    - [JavaScript & CSS (Frontend)](#javascript--css-frontend)
 6. [Submitting Issues & Feature Requests](#-submitting-issues--feature-requests)
+7. [Roadmap & Good First Issues](#-roadmap--good-first-issues)
 
 ---
 
@@ -175,6 +176,41 @@ docs: add CONTRIBUTING.md and standard git workflow guide
 - Explain the motivation and use case for the proposed feature.
 - Describe how it fits within the zero-dependency philosophy of DevGit.
 - Mockups, screenshots, or sample CLI output are highly appreciated.
+
+---
+
+## 🎯 Roadmap & Good First Issues
+
+Looking for somewhere to start? Here is our curated list of open tasks. If you'd like to work on one, comment on the corresponding issue or open a draft PR referencing the task title!
+
+### 🟢 Tier 1: Good First Issue (Beginner Friendly)
+*Ideal for contributors looking for a straightforward first contribution without deep architecture knowledge.*
+
+| Task | Description | Key Files |
+| :--- | :--- | :--- |
+| **System Theme Auto-Detect** | Detect OS theme preference via `prefers-color-scheme` media query on first visit before fallback to dark mode. | `frontend/index.html` |
+| **Keyboard Shortcuts** | Add handy hotkeys: `R` / `Ctrl+R` to refresh all repos, `Ctrl+K` or `/` to search repos, and `Esc` to close active modals. | `frontend/app.js` |
+| **Copy Status Summary** | Add a top-bar button to copy a Markdown summary of all dirty repos and active branches to clipboard for standup notes. | `frontend/app.js` |
+| **Relative Timestamp Format** | Format commit timestamps into friendly human-readable strings (e.g., "10 minutes ago", "Yesterday"). | `frontend/app.js` |
+
+### 🟡 Tier 2: Intermediate (Git Mechanics & Dashboard UI)
+*Ideal for developers familiar with Git CLI commands, Python subprocesses, or vanilla JS components.*
+
+| Task | Description | Key Files |
+| :--- | :--- | :--- |
+| **Git Stash Quick-Manager** | Add UI controls to inspect repository stashes (`git stash list`) and 1-click apply/drop (`git stash pop`, `drop`). | `backend/router.py`, `frontend/app.js` |
+| **Merge Conflict Indicator** | Detect unmerged conflict states (`git status --porcelain`) and highlight repository cards in red with the conflicted file paths. | `backend/router.py`, `frontend/app.js` |
+| **Real-Time Branch Filter** | Add an instant text search filter in the "Switch Branch" modal to search through hundreds of remote and local branches. | `frontend/gitflow_panel.js` |
+| **Custom AI Prompt in Settings** | Allow users to customize the system prompt template passed to Ollama when generating commit messages. | `backend/router.py`, `frontend/index.html` |
+
+### 🔴 Tier 3: Advanced (Architecture & Core Engine)
+*Ideal for experienced developers interested in backend performance, file streaming, and testing frameworks.*
+
+| Task | Description | Key Files |
+| :--- | :--- | :--- |
+| **Automated Unit Test Suite** | Implement standard library `unittest` test suite covering `backend/router.py` API endpoints and repo discovery logic. | `tests/test_router.py`, `tests/test_discovery.py` |
+| **Git Worktree Support** | Discover and visually group Git worktrees pointing to the same repository root. | `backend/router.py`, `frontend/app.js` |
+| **Server-Sent Events (SSE)** | Stream repository status updates via standard library HTTP SSE when `.git/index` or `HEAD` changes on disk. | `backend/server.py` |
 
 ---
 
