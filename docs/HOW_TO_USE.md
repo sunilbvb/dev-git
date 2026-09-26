@@ -192,3 +192,5 @@ cd my-single-project
   Yes: `./start.sh --host 0.0.0.0`
 - **Does DevGit send my code to the cloud?**  
   No. DevGit is 100% local. Even AI commit generation runs on your own machine through local Ollama.
+- **Where can I learn about standard branching and workflow practices?**  
+  Review [docs/GIT_WORKFLOW.md](GIT_WORKFLOW.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).

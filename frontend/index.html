@@ -344,11 +344,17 @@ git push origin v1.1.4</pre>
                             <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Branch Type</label>
                             <div style="display: flex; gap: 8px;">
                                 <select id="gitflowBranchType" class="ui-select" style="flex: 1;">
-                                    <option value="feature">feature (new features)</option>
-                                    <option value="release">release (production release)</option>
-                                    <option value="hotfix">hotfix (emergency fix)</option>
-                                    <option value="bugfix">bugfix (bug fix)</option>
-                                    <option value="custom">custom (custom prefix)</option>
+                                    <option value="feature">feature/ (standard feature)</option>
+                                    <option value="feat">feat/ (conventional commits)</option>
+                                    <option value="fix">fix/ (conventional bug fix)</option>
+                                    <option value="hotfix">hotfix/ (production emergency fix)</option>
+                                    <option value="release">release/ (production release)</option>
+                                    <option value="bugfix">bugfix/ (bug fix)</option>
+                                    <option value="docs">docs/ (documentation)</option>
+                                    <option value="refactor">refactor/ (code restructuring)</option>
+                                    <option value="chore">chore/ (tooling & maintenance)</option>
+                                    <option value="test">test/ (testing)</option>
+                                    <option value="custom">custom/ (custom prefix)</option>
                                 </select>
                                 <input type="text" id="gitflowBranchTypeCustom" placeholder="e.g. experiment" class="ui-input hidden" style="flex: 1;" />
                             </div>

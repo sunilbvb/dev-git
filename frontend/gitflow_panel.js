@@ -71,14 +71,22 @@ window.selectGitflowRepo = async function selectGitflowRepo(repoPath, cardElemen
                     type = 'MAIN';
                 } else if (nameLower === 'develop' || nameLower === 'dev') {
                     type = 'DEVELOP';
-                } else if (nameLower.startsWith('feature/') || nameLower.startsWith('features/')) {
+                } else if (nameLower.startsWith('feature/') || nameLower.startsWith('features/') || nameLower.startsWith('feat/')) {
                     type = 'FEATURE';
                 } else if (nameLower.startsWith('release/') || nameLower.startsWith('releases/')) {
                     type = 'RELEASE';
                 } else if (nameLower.startsWith('hotfix/') || nameLower.startsWith('hotfixes/')) {
                     type = 'HOTFIX';
-                } else if (nameLower.startsWith('bugfix/') || nameLower.startsWith('bugfixes/')) {
+                } else if (nameLower.startsWith('bugfix/') || nameLower.startsWith('bugfixes/') || nameLower.startsWith('fix/')) {
                     type = 'BUGFIX';
+                } else if (nameLower.startsWith('docs/')) {
+                    type = 'DOCS';
+                } else if (nameLower.startsWith('refactor/')) {
+                    type = 'REFACTOR';
+                } else if (nameLower.startsWith('chore/')) {
+                    type = 'CHORE';
+                } else if (nameLower.startsWith('test/') || nameLower.startsWith('tests/')) {
+                    type = 'TEST';
                 }
                 
                 let baseBranch = 'develop';
@@ -421,9 +429,9 @@ function updateGitflowModalOutputs(forceAutoSelect = false) {
 
     // Auto-select standard base branch if forced or on type change
     if (forceAutoSelect === true || (forceAutoSelect instanceof Event && forceAutoSelect.target && forceAutoSelect.target.id === 'gitflowBranchType')) {
-        let defaultBase = 'develop';
+        let defaultBase = _gitflowBaseBranchNames.includes('develop') ? 'develop' : 'main';
         if (type === 'hotfix') {
-            defaultBase = 'main';
+            defaultBase = _gitflowBaseBranchNames.includes('main') ? 'main' : _gitflowBaseBranchNames[0];
         }
         if (_gitflowBaseBranchPicker && _gitflowBaseBranchNames.includes(defaultBase)) {
             _gitflowBaseBranchPicker.setValue(defaultBase);
@@ -441,18 +449,16 @@ function updateGitflowModalOutputs(forceAutoSelect = false) {
     }
 
     // Target branch name prefix configuration:
-    // feature -> features/
-    // bugfix -> bugfix/
-    // release -> releases/
-    // hotfix -> hotfix/
+    // feat, feature, fix, bugfix, hotfix, release, docs, refactor, chore, test
     let prefix = type;
-    if (type === 'feature') prefix = 'features';
-    else if (type === 'release') prefix = 'releases';
+    if (type === 'feature') prefix = 'feature';
+    else if (type === 'release') prefix = 'release';
     else if (type === 'custom') {
         prefix = customTypeEl ? (customTypeEl.value.trim() || 'custom') : 'custom';
     }
 
-    const targetName = `${prefix}/${versionScope || 'scope'}/${ticketName || 'ticket'}`;
+    const scopePart = versionScope ? `${versionScope}/` : '';
+    const targetName = `${prefix}/${scopePart}${ticketName || 'task'}`;
     targetBranchEl.value = targetName;
 
     // Command live preview

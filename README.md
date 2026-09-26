@@ -163,6 +163,18 @@ DevGit is styled with the [`developer-dashboard-ui`](https://github.com/sunilbvb
 
 ---
 
+## 🌿 Git Workflows & Contributing
+
+DevGit is an open-source project welcoming community contributions!
+
+- 📖 **[Standard Git Workflow Practices](docs/GIT_WORKFLOW.md)**: Detailed guide on supported branching models (Trunk-Based and classical Gitflow), Conventional Commits specification, release tagging, and multi-repo synchronization.
+- 🤝 **[Contributing Guidelines (CONTRIBUTING.md)](CONTRIBUTING.md)**: Setup guide, architectural principles (strict zero-dependency standard), branch naming conventions, coding standards, and PR lifecycle.
+- 📜 **[Code of Conduct](.github/CODE_OF_CONDUCT.md)**: Contributor standards and community pledge.
+- 🐛 **[Issue Templates](.github/ISSUE_TEMPLATE/)**: Standardized forms for bug reports and feature requests.
+- 📋 **[Pull Request Template](.github/pull_request_template.md)**: Structured checklist for review and verification.
+
+---
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
