@@ -11,7 +11,12 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
         (function() {
-            const theme = localStorage.getItem('theme') || localStorage.getItem('devgit_theme') || 'dark';
+            const savedTheme = localStorage.getItem('theme') || localStorage.getItem('devgit_theme');
+            let theme = savedTheme;
+            if (!theme) {
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                theme = prefersDark ? 'dark' : 'light';
+            }
             document.documentElement.setAttribute('data-theme', theme);
             window.addEventListener('message', function(e) {
                 if (e.data && e.data.type === 'THEME_CHANGE') {
@@ -19,6 +24,15 @@
                     if (document.body) document.body.setAttribute('data-theme', e.data.theme);
                 }
             });
+            if (window.matchMedia && !savedTheme) {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+                    if (!localStorage.getItem('theme') && !localStorage.getItem('devgit_theme')) {
+                        const newTheme = e.matches ? 'dark' : 'light';
+                        document.documentElement.setAttribute('data-theme', newTheme);
+                        if (document.body) document.body.setAttribute('data-theme', newTheme);
+                    }
+                });
+            }
         })();
     </script>
 </head>
@@ -40,11 +54,26 @@
                                 <input type="checkbox" id="gitGlobalUseMelos" checked style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
                                 Melos Git Workflow (multi-repo)
                             </label>
-                            <button class="ui-button" data-variant="secondary" data-size="sm" id="gitRefreshReposBtn" type="button">Refresh Repositories</button>
-                            <button class="ui-button" data-variant="primary" data-size="sm" id="gitFetchAllBtn" type="button">Git Fetch All</button>
+                            <button class="ui-button" data-variant="secondary" data-size="sm" id="gitRefreshReposBtn" type="button" title="Refresh all repositories (Shortcut: R)">🔄 Refresh (R)</button>
+                            <button class="ui-button" data-variant="primary" data-size="sm" id="gitFetchAllBtn" type="button" title="Git Fetch All (Shortcut: F)">Git Fetch All (F)</button>
                         </div>
                     </div>
-                    <p class="ui-page-subtitle" id="gitStatus">Track multi-repo branches, dirty working trees, and remote syncs.</p>
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap;">
+                        <div style="position: relative; flex: 1; max-width: 420px; min-width: 260px;">
+                            <span style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; color: #64748b; pointer-events: none;">🔍</span>
+                            <input type="text" id="gitRepoSearchInput" class="ui-input" placeholder="Filter repos by name, branch, dirty... (Ctrl+K or /)" autocomplete="off" style="width: 100%; font-size: 12px; height: 32px; padding-left: 32px; padding-right: 56px; border-radius: 6px;" />
+                            <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; font-family: monospace; background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 4px; color: #94a3b8; pointer-events: none; border: 1px solid rgba(255,255,255,0.1);">Ctrl+K</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button class="ui-button" data-variant="outline" data-size="xs" id="gitCopyStandupBtn" type="button" title="Copy Markdown summary of dirty repos and current branches to clipboard (Shortcut: C)" style="display: flex; align-items: center; gap: 5px;">
+                                📋 Copy Standup Summary <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(C)</span>
+                            </button>
+                            <button class="ui-button" data-variant="ghost" data-size="xs" id="gitShortcutsHelpBtn" type="button" title="Keyboard Shortcuts (?)">
+                                ⌨️ Shortcuts (?)
+                            </button>
+                        </div>
+                    </div>
+                    <p class="ui-page-subtitle" id="gitStatus" style="margin-top: 8px;">Track multi-repo branches, dirty working trees, and remote syncs.</p>
                 </div>
                 <div class="git-branch-popover hidden" id="gitBranchPopover">
                     <div class="git-branch-popover-title" id="gitBranchPopoverTitle">Branches</div>
@@ -726,6 +755,49 @@ git push origin v1.1.4</pre>
                     <div class="ui-modal-footer">
                         <button class="ui-button" data-variant="outline" type="button" id="gitSwitchWorkspaceCancel">Cancel</button>
                         <button class="ui-button" data-variant="primary" type="button" id="gitSwitchWorkspaceSubmit">Switch Workspace</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Keyboard Shortcuts Cheat Sheet -->
+            <div class="ui-modal-backdrop hidden" id="gitShortcutsModal" style="z-index: 999999;">
+                <div class="ui-modal-card" style="max-width: 480px;">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">⌨️ Keyboard Shortcuts</h3>
+                        <button class="ui-modal-close" type="button" id="gitShortcutsClose" aria-label="Close">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <span style="color: #cbd5e1;">Focus Repository Search</span>
+                            <span><kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">Ctrl+K</kbd> or <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">/</kbd></span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <span style="color: #cbd5e1;">Refresh All Repositories</span>
+                            <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">R</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <span style="color: #cbd5e1;">Git Fetch All</span>
+                            <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">F</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <span style="color: #cbd5e1;">Copy Standup Markdown Summary</span>
+                            <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">C</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <span style="color: #cbd5e1;">Switch Workspace</span>
+                            <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">W</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <span style="color: #cbd5e1;">Close Active Modal / Dismiss</span>
+                            <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">Esc</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
+                            <span style="color: #cbd5e1;">Show Shortcuts Cheat Sheet</span>
+                            <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">?</kbd>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="primary" type="button" id="gitShortcutsOk">Got It</button>
                     </div>
                 </div>
             </div>

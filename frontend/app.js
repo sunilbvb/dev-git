@@ -3833,3 +3833,241 @@ function PathBasename(p) {
     const parts = s.split(/[/\\]/);
     return parts[parts.length - 1] || s;
 }
+
+// ==============================================================================
+// ⌨️ Keyboard Shortcuts, Repository Search, and Standup Summary
+// ==============================================================================
+
+function initRepoSearchAndFilter() {
+    const searchInput = document.getElementById('gitRepoSearchInput');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', (e) => {
+        const query = (e.target.value || '').toLowerCase().trim();
+        filterRepositories(query);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            searchInput.value = '';
+            filterRepositories('');
+            searchInput.blur();
+        }
+    });
+}
+
+function filterRepositories(query) {
+    const q = (query || '').toLowerCase().trim();
+    const cards = document.querySelectorAll('.compact-app-card, .git-repo');
+    
+    cards.forEach(card => {
+        if (!q) {
+            card.style.display = '';
+            return;
+        }
+        const text = (card.textContent || '').toLowerCase();
+        const path = (card.getAttribute('data-repo-path-enc') || '').toLowerCase();
+        const matches = text.includes(q) || path.includes(q);
+        card.style.display = matches ? '' : 'none';
+    });
+
+    // Check sections and toggle visibility if all children are hidden
+    ['gitRepoListApps', 'gitRepoListPackages', 'gitRepoListFavorites'].forEach(id => {
+        const list = document.getElementById(id);
+        if (!list) return;
+        const section = list.closest('.git-section');
+        if (!section) return;
+        if (!q) {
+            section.style.display = '';
+            return;
+        }
+        const hasVisible = Array.from(list.children).some(c => c.style.display !== 'none');
+        section.style.display = hasVisible ? '' : 'none';
+    });
+}
+
+function copyStandupSummary() {
+    const repos = Array.isArray(_gitLastRenderedRepos) ? _gitLastRenderedRepos : [];
+    const workspacePath = document.getElementById('currentWorkspacePath')?.textContent || 'Current Workspace';
+    const cleanWorkspace = workspacePath === 'Loading...' ? 'Workspace' : PathBasename(workspacePath);
+
+    if (repos.length === 0) {
+        showGitflowToast('Standup Summary', 'No repositories loaded yet.');
+        return;
+    }
+
+    const dirtyRepos = [];
+    const cleanRepos = [];
+
+    repos.forEach(r => {
+        const name = r.name || PathBasename(r.path);
+        const branch = r.head || r.currentBranch || 'unknown';
+        const isDirty = !!(r.isDirty || r.dirtyFilesCount > 0 || r.hasUncommittedChanges);
+        const ahead = Number(r.ahead || 0);
+        const behind = Number(r.behind || 0);
+
+        let details = [];
+        if (isDirty) {
+            const count = r.dirtyFilesCount || 'uncommitted';
+            details.push(`${count} modified/untracked files`);
+        }
+        if (ahead > 0) details.push(`ahead by ${ahead}`);
+        if (behind > 0) details.push(`behind by ${behind}`);
+
+        const detailStr = details.length > 0 ? ` (${details.join(', ')})` : '';
+
+        if (isDirty || ahead > 0 || behind > 0) {
+            dirtyRepos.push(`- **\`${name}\`** \`[${branch}]\`${detailStr}`);
+        } else {
+            cleanRepos.push(`- **\`${name}\`** \`[${branch}]\``);
+        }
+    });
+
+    let md = `### 🚀 Git Standup Summary — ${cleanWorkspace}\n\n`;
+    md += `**Total Repositories:** ${repos.length} (${dirtyRepos.length} with pending changes)\n\n`;
+
+    if (dirtyRepos.length > 0) {
+        md += `#### ⚠️ Active / Pending Repositories:\n`;
+        md += dirtyRepos.join('\n') + '\n\n';
+    }
+
+    if (cleanRepos.length > 0) {
+        md += `#### 🟢 Clean & Synced Repositories:\n`;
+        md += cleanRepos.join('\n') + '\n';
+    }
+
+    navigator.clipboard.writeText(md.trim()).then(() => {
+        showGitflowToast('📋 Copied to Clipboard', `Standup summary for ${repos.length} repositories copied!`);
+    }).catch(err => {
+        console.error('Clipboard copy failed:', err);
+        showGitflowToast('Copy Failed', 'Could not copy to clipboard. Check browser permissions.');
+    });
+}
+
+function openShortcutsModal() {
+    const modal = document.getElementById('gitShortcutsModal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeShortcutsModal() {
+    const modal = document.getElementById('gitShortcutsModal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function initKeyboardShortcuts() {
+    const shortcutsBtn = document.getElementById('gitShortcutsHelpBtn');
+    const shortcutsClose = document.getElementById('gitShortcutsClose');
+    const shortcutsOk = document.getElementById('gitShortcutsOk');
+    const copyStandupBtn = document.getElementById('gitCopyStandupBtn');
+
+    if (shortcutsBtn) shortcutsBtn.addEventListener('click', openShortcutsModal);
+    if (shortcutsClose) shortcutsClose.addEventListener('click', closeShortcutsModal);
+    if (shortcutsOk) shortcutsOk.addEventListener('click', closeShortcutsModal);
+    if (copyStandupBtn) copyStandupBtn.addEventListener('click', copyStandupSummary);
+
+    window.addEventListener('keydown', (e) => {
+        const active = document.activeElement;
+        const isTyping = active && (
+            active.tagName === 'INPUT' ||
+            active.tagName === 'TEXTAREA' ||
+            active.isContentEditable ||
+            active.tagName === 'SELECT'
+        );
+
+        // 1. Esc: Always works to dismiss active modal, popover, or clear search
+        if (e.key === 'Escape') {
+            if (isTyping && active.id === 'gitRepoSearchInput') {
+                active.value = '';
+                filterRepositories('');
+                active.blur();
+                return;
+            }
+
+            // Close shortcuts modal if open
+            const shortcutsModal = document.getElementById('gitShortcutsModal');
+            if (shortcutsModal && !shortcutsModal.classList.contains('hidden')) {
+                e.preventDefault();
+                closeShortcutsModal();
+                return;
+            }
+
+            // Close any open modal
+            const openModals = Array.from(document.querySelectorAll('.modal:not(.hidden), .ui-modal-backdrop:not(.hidden)'));
+            if (openModals.length > 0) {
+                e.preventDefault();
+                openModals[openModals.length - 1].classList.add('hidden');
+                return;
+            }
+
+            // Close popover
+            const popover = document.getElementById('gitBranchPopover');
+            if (popover && !popover.classList.contains('hidden')) {
+                e.preventDefault();
+                popover.classList.add('hidden');
+                return;
+            }
+        }
+
+        // 2. Ctrl+K or Cmd+K -> Focus Repo Search (even if focused elsewhere)
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+            e.preventDefault();
+            const searchInput = document.getElementById('gitRepoSearchInput');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+            }
+            return;
+        }
+
+        // 3. Single key hotkeys (active only when NOT typing in an input field)
+        if (!isTyping) {
+            if (e.key === '/') {
+                e.preventDefault();
+                const searchInput = document.getElementById('gitRepoSearchInput');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+                return;
+            }
+
+            if (e.key.toLowerCase() === 'r' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                const refreshBtn = document.getElementById('gitRefreshReposBtn');
+                if (refreshBtn) refreshBtn.click();
+                return;
+            }
+
+            if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                const fetchBtn = document.getElementById('gitFetchAllBtn');
+                if (fetchBtn) fetchBtn.click();
+                return;
+            }
+
+            if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                copyStandupSummary();
+                return;
+            }
+
+            if (e.key.toLowerCase() === 'w' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                const switchBtn = document.getElementById('gitSwitchWorkspaceBtn');
+                if (switchBtn) switchBtn.click();
+                return;
+            }
+
+            if (e.key === '?') {
+                e.preventDefault();
+                openShortcutsModal();
+                return;
+            }
+        }
+    });
+}
+
+// Auto-initialize search and keyboard listeners on load
+initRepoSearchAndFilter();
+initKeyboardShortcuts();
