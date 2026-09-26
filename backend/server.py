@@ -151,6 +151,8 @@ def _handle_workspace_switch(handler, data: dict):
 def _serve_apps_config(handler):
     config_file = WORKSPACE_ASSETS_DIR / "apps_config.json"
     if not config_file.exists():
+        config_file = WORKSPACE_ASSETS_DIR / "apps_config.example.json"
+    if not config_file.exists():
         _write_json(handler, {"success": True, "apps": []})
         return
     try:

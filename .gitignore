@@ -1,17 +1,29 @@
-# Operating System
-.DS_Store
-Thumbs.db
-*.swp
-*~
+# ==============================================================================
+# DevGit - Git Ignore Rules
+# ==============================================================================
 
-# IDE & Editors
+# Operating System & Filesystem Artifacts
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Configurations
 .idea/
 .vscode/
 *.iml
+*.iws
+*.ipr
 *.sublime-project
 *.sublime-workspace
+*.swp
+*.swo
+*~
 
-# Python
+# Python Bytecode, Caches & Environments
 __pycache__/
 *.py[cod]
 *$py.class
@@ -21,9 +33,13 @@ env/
 venv/
 .venv/
 ENV/
-/build/
+env.bak/
+venv.bak/
+
+# Python Build & Distribution
+build/
 develop-eggs/
-/dist/
+dist/
 downloads/
 eggs/
 .eggs/
@@ -37,11 +53,28 @@ wheels/
 .installed.cfg
 *.egg
 
-# Local Cache & State
-git_repos_cache.json
-**/git_repos_cache.json
+# Testing & Code Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+htmlcov/
+*.cover
+
+# Temporary Logs & Runtime Cache
 *.log
 /tmp/
+git_repos_cache.json
+**/git_repos_cache.json
+git_cache_err.log
+
+# Local User Configurations & Private Workspace Layouts
+.env
+.env.*
+.devgit.json
+workspace_assets/apps_config.json
 
 # Workspace Assets & User Uploads
 workspace_assets/excel_uploads/*
@@ -52,3 +85,14 @@ workspace_assets/ngrok_config.json
 workspace_assets/profile_config.json
 workspace_assets/official_chat_groups.json
 workspace_assets/my_projects_groups.json
+
+# Scratch & Temporary Developer Scripts
+scratch/
+scratch_*.*
+
+# Frontend / Package Manager (if ever initialized locally)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
