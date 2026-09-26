@@ -23,6 +23,36 @@ _OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'llama3')
 _AI_MAX_DIFF_CHARS = int(os.environ.get('AI_MAX_DIFF_CHARS', '120000'))
 _WORKSPACE_ROOT = Path(os.environ.get("WORKSPACE_ROOT", os.getcwd())).expanduser().resolve()
 
+def set_workspace_root(path: Any) -> None:
+    global _WORKSPACE_ROOT
+    _WORKSPACE_ROOT = Path(path).expanduser().resolve()
+
+def get_workspace_root() -> Path:
+    return _WORKSPACE_ROOT
+
+def handle_workspace_switch(data: dict) -> dict:
+    new_path_str = (data.get("workspace") or data.get("workspacePath") or data.get("path") or "").strip()
+    if not new_path_str:
+        return {"success": False, "error": "Missing workspace path"}
+
+    new_path = Path(new_path_str).expanduser().resolve()
+    if not new_path.exists() or not new_path.is_dir():
+        return {"success": False, "error": f"Directory does not exist: {new_path}"}
+
+    set_workspace_root(new_path)
+    if _CACHE_FILE.exists():
+        try:
+            _CACHE_FILE.unlink()
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "message": f"Workspace switched to {new_path}",
+        "workspaceRoot": str(new_path),
+        "name": new_path.name
+    }
+
 _CACHE_FILE = Path(__file__).resolve().parent / "git_repos_cache.json"
 
 def _discover_git_repos(workspace_root: Path) -> list[Path]:
@@ -2807,6 +2837,28 @@ def handle_git_stash_drop(data: dict) -> dict:
     if code != 0:
         return {"success": False, "error": f"Failed to drop stash: {err or out}"}
     return {"success": True, "message": "Stash dropped successfully."}
+
+def handle_git_stash_pop(data: dict) -> dict:
+    repo_path = str(data.get("repoPath") or "").strip()
+    ref = str(data.get("ref") or "").strip()
+
+    if not repo_path:
+        return {"success": False, "error": "Missing repoPath"}
+
+    workspace_root = _WORKSPACE_ROOT
+    repos = _discover_git_repos(workspace_root)
+    target = Path(repo_path).resolve()
+    if target not in repos:
+        return {"success": False, "error": "Unknown repoPath"}
+
+    cmd = ["stash", "pop"]
+    if ref:
+        cmd.append(ref)
+
+    code, out, err = _run_git(target, cmd)
+    if code != 0:
+        return {"success": False, "error": f"Failed to pop stash: {err or out}"}
+    return {"success": True, "message": "Stash popped successfully."}
 
 def serve_git_branch_ci_status(path: str) -> dict:
     from urllib.parse import urlparse, parse_qs

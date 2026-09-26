@@ -481,13 +481,18 @@ function renderGitRepos(repos) {
             _gitLastStatusByRepo.set(rawPath, { ahead, behind });
             const dirty = !!r.dirty;
 
+            const hasConflict = !!(r.conflict || _gitConflictRepos.has(rawPath));
+            if (hasConflict) {
+                _gitConflictRepos.set(rawPath, 'Merge conflict active');
+            }
+
             // Status badge label (only for actionable states)
             let statusBadge = '';
-            if (_gitConflictRepos.has(rawPath)) {
-                statusBadge = `<span class="ui-badge" data-variant="danger">conflict</span>`;
+            if (hasConflict) {
+                statusBadge = `<span class="ui-badge" data-variant="danger" style="animation: pulse 1.5s infinite; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4);">⚠️ conflict</span>`;
             } else if (dirty) {
-                const n = (r.dirtyFiles || []).length;
-                statusBadge = `<span class="ui-badge" data-variant="warning">${n} change${n !== 1 ? 's' : ''}</span>`;
+                const n = (r.dirtyFiles || []).length || (r.changes || 0);
+                statusBadge = `<span class="ui-badge" data-variant="warning">${n > 0 ? n + ' change' + (n !== 1 ? 's' : '') : 'dirty'}</span>`;
             } else if (behind > 0 && ahead > 0) {
                 statusBadge = `<span class="ui-badge" data-variant="warning">↑${ahead} ↓${behind}</span>`;
             } else if (behind > 0) {
@@ -529,14 +534,22 @@ function renderGitRepos(repos) {
                 headerIcon = `<i data-lucide="package" style="width: 18px; height: 18px; color: #64748b; display: inline-flex; align-items: center; justify-content: center;"></i>`;
             }
 
+            const conflictCardStyle = hasConflict ? 'border-color: rgba(239, 68, 68, 0.6) !important; box-shadow: 0 0 14px rgba(239, 68, 68, 0.25);' : '';
+            const actionQuickBtn = hasConflict ? `
+                <button class="ui-button" data-variant="danger" data-size="xs" onclick="event.stopPropagation(); openConflictModal('${rawPath.replace(/'/g, "\\'")}')" style="padding: 2px 8px; font-size: 11px; white-space: nowrap;">⚠️ Resolve</button>
+            ` : '';
+
             return `
-                <div class="compact-app-card git-repo" data-repo-path-enc="${pathEnc}" onclick="openRepoDetailScreen('${rawPath.replace(/'/g, "\\'")}')" style="--app-color: #3b82f6;">
+                <div class="compact-app-card git-repo" data-repo-path-enc="${pathEnc}" onclick="openRepoDetailScreen('${rawPath.replace(/'/g, "\\'")}')" style="--app-color: #3b82f6; ${conflictCardStyle}">
                     <div class="compact-app-card-icon">${headerIcon || '<i data-lucide="box"></i>'}</div>
                     <div style="min-width: 0; flex: 1;">
                         <h3 title="${escapeHtml(name)}">${escapeHtml(name)}</h3>
                         <div class="compact-app-meta" title="${escapeHtml(branchName)}"><span class="compact-app-meta-icon">⌥</span><span class="compact-app-meta-text">${escapeHtml(shortenBranchLabel(branchName))}</span></div>
                     </div>
-                    ${statusBadge || '<span class="ui-badge" data-variant="neutral">stable</span>'}
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        ${actionQuickBtn}
+                        ${statusBadge || '<span class="ui-badge" data-variant="neutral">stable</span>'}
+                    </div>
                 </div>
             `;
         } catch (err) {
@@ -3637,6 +3650,7 @@ window.loadGitStashes = async (repoPath) => {
                         <span style="color:#cbd5e1; font-size:11px; word-break:break-all;">${escapeHtml(stash.description)}</span>
                     </div>
                     <div style="display:flex; gap:6px;">
+                        <button class="api-btn small primary" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px; background:#3b82f6; border-color:#3b82f6;" onclick="popGitStash(event, '${escapeHtml(repoPath)}', '${escapeHtml(stash.ref)}')">Pop</button>
                         <button class="api-btn small" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px;" onclick="applyGitStash(event, '${escapeHtml(repoPath)}', '${escapeHtml(stash.ref)}')">Apply</button>
                         <button class="api-btn small danger" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px; background:#e53e3e; border-color:#e53e3e;" onclick="dropGitStash(event, '${escapeHtml(repoPath)}', '${escapeHtml(stash.ref)}')">Drop</button>
                     </div>
@@ -3645,6 +3659,34 @@ window.loadGitStashes = async (repoPath) => {
         }).join('');
     } catch (err) {
         list.innerHTML = `<div style="color: #ef4444; padding: 8px; text-align: center;">Error: ${escapeHtml(err.message)}</div>`;
+    }
+};
+
+window.popGitStash = async (event, repoPath, ref) => {
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Popping...";
+
+    try {
+        const res = await fetch(apiUrl('/api/git/stash/pop'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repoPath, ref })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            alert("❌ Failed to pop stash: " + data.error);
+            return;
+        }
+        showGitflowToast("Stash Popped", `Stash ${ref} popped successfully.`);
+        loadGitStashes(repoPath);
+        loadGitRepos(true);
+    } catch (err) {
+        alert("❌ Error: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
     }
 };
 
@@ -3955,16 +3997,41 @@ function closeShortcutsModal() {
     if (modal) modal.classList.add('hidden');
 }
 
+function openStashModal(repoPath) {
+    const modal = document.getElementById('gitStashModal');
+    const stashSelect = document.getElementById('gitStashRepoSelect');
+    if (modal) {
+        modal.classList.remove('hidden');
+        if (repoPath && stashSelect) {
+            stashSelect.value = repoPath;
+        }
+        if (stashSelect && stashSelect.value) {
+            loadGitStashes(stashSelect.value);
+        }
+    }
+}
+
+function closeStashModal() {
+    const modal = document.getElementById('gitStashModal');
+    if (modal) modal.classList.add('hidden');
+}
+
 function initKeyboardShortcuts() {
     const shortcutsBtn = document.getElementById('gitShortcutsHelpBtn');
     const shortcutsClose = document.getElementById('gitShortcutsClose');
     const shortcutsOk = document.getElementById('gitShortcutsOk');
     const copyStandupBtn = document.getElementById('gitCopyStandupBtn');
+    const stashBtn = document.getElementById('gitStashManagerBtn');
+    const stashClose = document.getElementById('gitStashModalClose');
+    const stashOk = document.getElementById('gitStashModalOk');
 
     if (shortcutsBtn) shortcutsBtn.addEventListener('click', openShortcutsModal);
     if (shortcutsClose) shortcutsClose.addEventListener('click', closeShortcutsModal);
     if (shortcutsOk) shortcutsOk.addEventListener('click', closeShortcutsModal);
     if (copyStandupBtn) copyStandupBtn.addEventListener('click', copyStandupSummary);
+    if (stashBtn) stashBtn.addEventListener('click', () => openStashModal());
+    if (stashClose) stashClose.addEventListener('click', closeStashModal);
+    if (stashOk) stashOk.addEventListener('click', closeStashModal);
 
     window.addEventListener('keydown', (e) => {
         const active = document.activeElement;
@@ -3989,6 +4056,14 @@ function initKeyboardShortcuts() {
             if (shortcutsModal && !shortcutsModal.classList.contains('hidden')) {
                 e.preventDefault();
                 closeShortcutsModal();
+                return;
+            }
+
+            // Close stash modal if open
+            const stashModal = document.getElementById('gitStashModal');
+            if (stashModal && !stashModal.classList.contains('hidden')) {
+                e.preventDefault();
+                closeStashModal();
                 return;
             }
 
@@ -4043,6 +4118,12 @@ function initKeyboardShortcuts() {
                 e.preventDefault();
                 const fetchBtn = document.getElementById('gitFetchAllBtn');
                 if (fetchBtn) fetchBtn.click();
+                return;
+            }
+
+            if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                openStashModal();
                 return;
             }
 

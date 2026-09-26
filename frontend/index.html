@@ -65,6 +65,9 @@
                             <span style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; font-family: monospace; background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 4px; color: #94a3b8; pointer-events: none; border: 1px solid rgba(255,255,255,0.1);">Ctrl+K</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px;">
+                            <button class="ui-button" data-variant="outline" data-size="xs" id="gitStashManagerBtn" type="button" title="Inspect & Manage Git Stashes (Shortcut: S)" style="display: flex; align-items: center; gap: 5px;">
+                                📦 Stashes <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(S)</span>
+                            </button>
                             <button class="ui-button" data-variant="outline" data-size="xs" id="gitCopyStandupBtn" type="button" title="Copy Markdown summary of dirty repos and current branches to clipboard (Shortcut: C)" style="display: flex; align-items: center; gap: 5px;">
                                 📋 Copy Standup Summary <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(C)</span>
                             </button>
@@ -784,6 +787,10 @@ git push origin v1.1.4</pre>
                             <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">C</kbd>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <span style="color: #cbd5e1;">Inspect & Manage Git Stashes</span>
+                            <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">S</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
                             <span style="color: #cbd5e1;">Switch Workspace</span>
                             <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">W</kbd>
                         </div>
@@ -798,6 +805,32 @@ git push origin v1.1.4</pre>
                     </div>
                     <div class="ui-modal-footer">
                         <button class="ui-button" data-variant="primary" type="button" id="gitShortcutsOk">Got It</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Git Stashes Quick-Manager -->
+            <div class="ui-modal-backdrop hidden" id="gitStashModal" style="z-index: 99999;">
+                <div class="ui-modal-card" style="max-width: 600px;">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">📦 Git Stash Quick-Manager</h3>
+                        <button class="ui-modal-close" type="button" id="gitStashModalClose" aria-label="Close">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+                        <div style="display: flex; gap: 10px; align-items: flex-end;">
+                            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                                <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Select Repository</label>
+                                <select id="gitStashRepoSelect" class="ui-select" style="width: 100%; font-size: 13px;"></select>
+                            </div>
+                            <button class="ui-button" data-variant="primary" data-size="sm" id="gitStashCreateBtn" type="button" onclick="createGitStash()" style="height: 36px; white-space: nowrap;">+ New Stash</button>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Stash List</label>
+                            <div id="gitStashList" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding: 2px;"></div>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitStashModalOk">Close</button>
                     </div>
                 </div>
             </div>

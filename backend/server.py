@@ -231,6 +231,8 @@ class GitHandler(http.server.SimpleHTTPRequestHandler):
             _write_json(self, router.handle_git_stash_apply(_safe_read_json(self)))
         elif self.path.startswith("/api/git/stash/drop"):
             _write_json(self, router.handle_git_stash_drop(_safe_read_json(self)))
+        elif self.path.startswith("/api/git/stash/pop"):
+            _write_json(self, router.handle_git_stash_pop(_safe_read_json(self)))
         elif self.path.startswith("/api/git/conflict/resolve"):
             _write_json(self, router.handle_git_conflict_resolve(_safe_read_json(self)))
         elif self.path.startswith("/api/git/tag/create"):
