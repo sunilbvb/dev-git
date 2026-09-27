@@ -47,10 +47,12 @@ class TestDevGitRouter(unittest.TestCase):
         self.assertIn("ahead", status)
         self.assertIn("behind", status)
         self.assertIn("conflict", status)
+        self.assertIn("stashCount", status)
         self.assertIsInstance(status["conflict"], bool)
         self.assertIsInstance(status["dirty"], bool)
         self.assertIsInstance(status["ahead"], int)
         self.assertIsInstance(status["behind"], int)
+        self.assertIsInstance(status["stashCount"], int)
 
     def test_serve_git_repos(self):
         """Test /api/git/repos endpoint handler."""

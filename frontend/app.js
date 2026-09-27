@@ -501,6 +501,12 @@ function renderGitRepos(repos) {
                 statusBadge = `<span class="ui-badge" data-variant="success">↑${ahead} ahead</span>`;
             }
 
+            const stashCount = Number(r.stashCount || 0);
+            let stashBadge = '';
+            if (stashCount > 0) {
+                stashBadge = `<span class="ui-badge" data-variant="secondary" style="background: rgba(138, 180, 255, 0.15); color: #8ab4ff; border: 1px solid rgba(138, 180, 255, 0.3); font-size: 10px; cursor: pointer;" title="View ${stashCount} saved stash(es)" onclick="event.stopPropagation(); openStashModal('${rawPath.replace(/'/g, "\\'")}')">📦 ${stashCount}</span>`;
+            }
+
             // Branch count from cache, fallback to placeholder
             const repoBranchPayload = _gitBranchStatusCache.get(rawPath);
             const branchCount = repoBranchPayload
@@ -548,6 +554,7 @@ function renderGitRepos(repos) {
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         ${actionQuickBtn}
+                        ${stashBadge}
                         ${statusBadge || '<span class="ui-badge" data-variant="neutral">stable</span>'}
                     </div>
                 </div>
@@ -3676,14 +3683,14 @@ window.popGitStash = async (event, repoPath, ref) => {
         });
         const data = await res.json();
         if (!data.success) {
-            alert("❌ Failed to pop stash: " + data.error);
+            showGitflowToast("Stash Pop Failed", data.error || "Failed to pop stash", "error");
             return;
         }
         showGitflowToast("Stash Popped", `Stash ${ref} popped successfully.`);
         loadGitStashes(repoPath);
         loadGitRepos(true);
     } catch (err) {
-        alert("❌ Error: " + err.message);
+        showGitflowToast("Stash Pop Error", err.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;
@@ -3692,10 +3699,13 @@ window.popGitStash = async (event, repoPath, ref) => {
 
 window.createGitStash = async () => {
     const stashSelect = document.getElementById('gitStashRepoSelect');
-    if (!stashSelect || !stashSelect.value) return;
+    const msgInput = document.getElementById('gitStashMessageInput');
+    if (!stashSelect || !stashSelect.value) {
+        showGitflowToast("Select Repository", "Please select a repository to stash changes.", "error");
+        return;
+    }
     const repoPath = stashSelect.value;
-    const message = prompt("Enter an optional stash description / message:");
-    if (message === null) return; // User cancelled
+    const message = msgInput ? msgInput.value.trim() : '';
 
     const btn = document.getElementById('gitStashCreateBtn');
     const originalText = btn.textContent;
@@ -3710,14 +3720,15 @@ window.createGitStash = async () => {
         });
         const data = await res.json();
         if (!data.success) {
-            alert("❌ Failed to create stash: " + data.error);
+            showGitflowToast("Stash Creation Failed", data.error || "Failed to create stash", "error");
             return;
         }
+        if (msgInput) msgInput.value = '';
         showGitflowToast("Stash Created", "Your local changes have been stashed successfully.");
         loadGitStashes(repoPath);
         loadGitRepos(true); // Refresh repository dirty indicators
     } catch (err) {
-        alert("❌ Error: " + err.message);
+        showGitflowToast("Stash Error", err.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;
@@ -3738,14 +3749,14 @@ window.applyGitStash = async (event, repoPath, ref) => {
         });
         const data = await res.json();
         if (!data.success) {
-            alert("❌ Failed to apply stash: " + data.error);
+            showGitflowToast("Stash Apply Failed", data.error || "Failed to apply stash", "error");
             return;
         }
         showGitflowToast("Stash Applied", `Stash ${ref} applied successfully.`);
         loadGitStashes(repoPath);
         loadGitRepos(true);
     } catch (err) {
-        alert("❌ Error: " + err.message);
+        showGitflowToast("Stash Apply Error", err.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;
@@ -3753,11 +3764,23 @@ window.applyGitStash = async (event, repoPath, ref) => {
 };
 
 window.dropGitStash = async (event, repoPath, ref) => {
-    const confirmDrop = confirm(`Are you sure you want to drop stash "${ref}"?\nThis is a destructive action and cannot be undone.`);
-    if (!confirmDrop) return;
-
     const btn = event.target;
-    const originalText = btn.textContent;
+    if (btn.dataset.confirming !== 'true') {
+        btn.dataset.confirming = 'true';
+        btn.textContent = 'Confirm Drop?';
+        btn.style.background = '#dc2626';
+        setTimeout(() => {
+            if (btn) {
+                delete btn.dataset.confirming;
+                btn.textContent = 'Drop';
+                btn.style.background = '#e53e3e';
+            }
+        }, 3000);
+        return;
+    }
+
+    const originalText = 'Drop';
+    delete btn.dataset.confirming;
     btn.disabled = true;
     btn.textContent = "Dropping...";
 
@@ -3769,16 +3792,18 @@ window.dropGitStash = async (event, repoPath, ref) => {
         });
         const data = await res.json();
         if (!data.success) {
-            alert("❌ Failed to drop stash: " + data.error);
+            showGitflowToast("Stash Drop Failed", data.error || "Failed to drop stash", "error");
             return;
         }
         showGitflowToast("Stash Dropped", `Stash ${ref} has been removed.`);
         loadGitStashes(repoPath);
+        loadGitRepos(true);
     } catch (err) {
-        alert("❌ Error: " + err.message);
+        showGitflowToast("Stash Drop Error", err.message, "error");
     } finally {
         btn.disabled = false;
         btn.textContent = originalText;
+        btn.style.background = '#e53e3e';
     }
 };
 

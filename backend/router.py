@@ -329,6 +329,9 @@ def _git_repo_status(repo: Path, branch: Optional[str] = None) -> Dict[str, Any]
     status_lines = [line for line in status_out.splitlines() if line.strip()] if code == 0 else []
     conflict = any(line[:2] in {"UU", "AA", "DD", "AU", "UA", "DU", "UD"} for line in status_lines)
 
+    code_stash, stash_out, _ = _run_git(repo, ["stash", "list"], timeout=5)
+    stash_count = len([l for l in stash_out.splitlines() if l.strip()]) if code_stash == 0 else 0
+
     return {
         "name": repo.name,
         "path": str(repo),
@@ -340,6 +343,7 @@ def _git_repo_status(repo: Path, branch: Optional[str] = None) -> Dict[str, Any]
         "hasUpstream": bool(upstream),
         "upstream": upstream,
         "conflict": conflict if not branch or branch == current_head else False,
+        "stashCount": stash_count,
     }
 
 def _get_melos_app_name(repo_path: Path) -> str:

@@ -817,12 +817,15 @@ git push origin v1.1.4</pre>
                         <button class="ui-modal-close" type="button" id="gitStashModalClose" aria-label="Close">&times;</button>
                     </div>
                     <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 14px;">
-                        <div style="display: flex; gap: 10px; align-items: flex-end;">
-                            <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
                                 <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Select Repository</label>
                                 <select id="gitStashRepoSelect" class="ui-select" style="width: 100%; font-size: 13px;"></select>
                             </div>
-                            <button class="ui-button" data-variant="primary" data-size="sm" id="gitStashCreateBtn" type="button" onclick="createGitStash()" style="height: 36px; white-space: nowrap;">+ New Stash</button>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" id="gitStashMessageInput" placeholder="Optional stash description / message..." class="ui-input" style="flex: 1; font-size: 12px; height: 34px;" />
+                                <button class="ui-button" data-variant="primary" data-size="sm" id="gitStashCreateBtn" type="button" onclick="createGitStash()" style="height: 34px; white-space: nowrap;">+ Stash Changes</button>
+                            </div>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
                             <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Stash List</label>
