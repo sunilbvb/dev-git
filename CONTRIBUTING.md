@@ -199,7 +199,7 @@ Looking for somewhere to start? Here is our curated list of open tasks. If you'd
 | **System Theme Auto-Detect** | Detect OS theme preference via `prefers-color-scheme` media query on first visit. | ✅ Done | `frontend/index.html` |
 | **Keyboard Shortcuts** | Add hotkeys: `Ctrl+K` (search), `R` (refresh), `F` (fetch), `S` (stash), `C` (copy standup), `Esc`. | ✅ Done | `frontend/app.js` |
 | **Copy Status Summary** | Top-bar button and hotkey `C` to copy Markdown standup summary to clipboard. | ✅ Done | `frontend/app.js` |
-| **Relative Timestamp Format** | Format commit timestamps into friendly human-readable strings ("10m ago", "Yesterday"). | ⏳ Open | `frontend/app.js` |
+| **Relative Timestamp Format** | Format commit timestamps into friendly human-readable strings ("10m ago", "Yesterday"). | ✅ Done | `frontend/app.js` |
 
 ### 🟡 Tier 2: Intermediate (Git Mechanics & Dashboard UI)
 *Ideal for developers familiar with Git CLI commands, Python subprocesses, or vanilla JS components.*
@@ -208,8 +208,8 @@ Looking for somewhere to start? Here is our curated list of open tasks. If you'd
 | :--- | :--- | :---: | :--- |
 | **Git Stash Quick-Manager** | UI modal & hotkey `S` to inspect stashes (`git stash list`) and 1-click pop/apply/drop. | ✅ Done | `backend/router.py`, `frontend/app.js` |
 | **Merge Conflict Indicator** | Detect unmerged conflict states, pulse card in red, and 1-click launch Conflict Assistant. | ✅ Done | `backend/router.py`, `frontend/app.js` |
-| **Real-Time Branch Filter** | Add instant text search filter in the "Switch Branch" modal to search through branches. | ⏳ Open | `frontend/gitflow_panel.js` |
-| **Custom AI Prompt in Settings** | Allow users to customize the system prompt template passed to Ollama for AI commits. | ⏳ Open | `backend/router.py`, `frontend/index.html` |
+| **Real-Time Branch Filter** | Add instant text search filter in the branch popovers/switchers to filter through branches. | ✅ Done | `frontend/app.js`, `frontend/index.html` |
+| **Custom AI Prompt in Settings** | Allow users to customize the system prompt template passed to Ollama for AI commits. | ✅ Done | `backend/router.py`, `frontend/gitflow_panel.js`, `frontend/app.js` |
 
 ### 🔴 Tier 3: Advanced (Architecture & Core Engine)
 *Ideal for experienced developers interested in backend performance, file streaming, and testing frameworks.*

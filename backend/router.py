@@ -1039,7 +1039,8 @@ def handle_git_ai_commit_message_async(data: dict) -> Dict[str, Any]:
             return {"success": False, "sensitive": True, "error": "Diff appears sensitive; refusing AI generation."}
             return
 
-        system = _conventional_commit_system_prompt()
+        custom_prompt = str(data.get("customPrompt") or data.get("systemPrompt") or "").strip()
+        system = custom_prompt if custom_prompt else _conventional_commit_system_prompt()
         prompt = _build_commit_prompt(repo, combined, staged=staged, unstaged=unstaged)
         job_id = _new_job_id()
         with _JOBS_LOCK:

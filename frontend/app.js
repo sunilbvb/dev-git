@@ -2242,6 +2242,31 @@ function openGitRenameBranchModal(repoPath, branch, btn) {
 
 let _gitCommitsCache = [];
 
+function formatRelativeTime(dateInput) {
+    if (!dateInput) return '';
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return String(dateInput);
+
+    const now = new Date();
+    const diffSeconds = Math.floor((now - date) / 1000);
+
+    if (diffSeconds < 30) return 'just now';
+    if (diffSeconds < 60) return `${diffSeconds}s ago`;
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return 'yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) return `${diffWeeks}w ago`;
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `${diffMonths}mo ago`;
+    const diffYears = Math.floor(diffDays / 365);
+    return `${diffYears}y ago`;
+}
+
 function _renderGitCommitRow(c) {
     const stats = (c.filesChanged > 0)
         ? `<span title="${c.filesChanged} file${c.filesChanged === 1 ? '' : 's'} changed" style="display:inline-flex; align-items:center; gap:6px; font-family:'JetBrains Mono', monospace; font-size:10.5px; flex-shrink:0;">
@@ -2251,6 +2276,10 @@ function _renderGitCommitRow(c) {
     const githubLink = c.webUrl
         ? `<a href="${escapeHtml(c.webUrl)}" target="_blank" rel="noopener noreferrer" title="View commit on GitHub" aria-label="View commit on GitHub" data-action="view-commit-remote" style="display:inline-flex; align-items:center; color:#94a3b8; flex-shrink:0;"><i data-lucide="external-link" style="width:13px; height:13px;"></i></a>`
         : '';
+
+    const rawDate = c.dateAbsolute || c.date || '';
+    const relativeTime = formatRelativeTime(rawDate);
+    const displayDate = relativeTime ? `${relativeTime} (${escapeHtml(c.date)})` : escapeHtml(c.date);
 
     return `
         <div class="ui-card commit-item" data-full-sha="${escapeHtml(c.fullSha || c.sha)}" style="flex-shrink: 0; padding: 10px 12px; margin-bottom: 8px; border-color: #1e293b; display: flex; flex-direction: column; gap: 6px;">
@@ -2264,7 +2293,7 @@ function _renderGitCommitRow(c) {
                 </div>
                 <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
                     ${stats}
-                    <span title="${escapeHtml(c.dateAbsolute || c.date)}" style="color: #94a3b8;">${escapeHtml(c.date)}</span>
+                    <span title="${escapeHtml(rawDate)}" style="color: #94a3b8; font-size: 11px;">${displayDate}</span>
                 </div>
             </div>
             <div style="font-size: 13px; font-weight: 500; line-height: 1.4; color: #e2e8f0; word-break: break-word; user-select: text;">${escapeHtml(c.message)}</div>
@@ -3007,6 +3036,26 @@ function openGitMergeModal(repoPath, branch, btn) {
                 return a.name.localeCompare(b.name);
             });
 
+        const popoverSearch = document.getElementById('gitBranchPopoverSearch');
+        if (popoverSearch) {
+            popoverSearch.value = '';
+            popoverSearch.oninput = (e) => {
+                const query = (e.target.value || '').toLowerCase().trim();
+                const matched = filtered.filter(b => b.name.toLowerCase().includes(query));
+                if (matched.length === 0) {
+                    popoverList.innerHTML = '<div style="color:#aaa; padding:10px; text-align:center;">No matching branches found.</div>';
+                    return;
+                }
+                popoverList.innerHTML = matched.map((b) => {
+                    const badges = [];
+                    if (!b.hasUpstream) badges.push(`<span class="git-badge noupstream">no upstream</span>`);
+                    if (b.behind > 0) badges.push(`<span class="git-badge behind">↓ ${b.behind}</span>`);
+                    if (b.ahead > 0) badges.push(`<span class="git-badge ahead">↑ ${b.ahead}</span>`);
+                    return `<div class="git-branch-row"><div class="name">${escapeHtml(b.name)}</div><div class="badges">${badges.join('')}</div></div>`;
+                }).join('');
+            };
+        }
+
         if (filtered.length === 0) {
             popoverList.innerHTML = '<div style="color:#aaa;">No branches.</div>';
             return;
@@ -3204,11 +3253,11 @@ async function aiGenerateThenCommit({ push }) {
             loadGitRepos(true);
         }
 
-        // 1) Start generation job
+        const customPrompt = localStorage.getItem('devgit_ai_prompt_template') || '';
         const genRes = await fetch(apiUrl('/api/git/ai/commit-message'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ repoPath, staged, unstaged, selectedFiles }),
+            body: JSON.stringify({ repoPath, staged, unstaged, selectedFiles, customPrompt }),
         });
         const genData = await genRes.json();
         if (!genData.success || !genData.jobId) throw new Error(genData.error || 'Failed to start AI generation');

@@ -1155,7 +1155,11 @@ window.openGitflowSettingsModal = () => {
     const modal = document.getElementById('gitflowSettingsModal');
     if (!modal) return;
     const token = localStorage.getItem('devgit_github_token_v1') || '';
-    document.getElementById('gitflowSettingsTokenInput').value = token;
+    const aiPrompt = localStorage.getItem('devgit_ai_prompt_template') || '';
+    const tokenInput = document.getElementById('gitflowSettingsTokenInput');
+    const aiPromptInput = document.getElementById('gitflowSettingsAiPromptInput');
+    if (tokenInput) tokenInput.value = token;
+    if (aiPromptInput) aiPromptInput.value = aiPrompt;
     modal.classList.remove('hidden');
 };
 
@@ -1172,9 +1176,17 @@ if (settingsClose) settingsClose.addEventListener('click', window.closeGitflowSe
 if (settingsCancel) settingsCancel.addEventListener('click', window.closeGitflowSettingsModal);
 if (settingsSubmit) {
     settingsSubmit.addEventListener('click', () => {
-        const token = document.getElementById('gitflowSettingsTokenInput').value.trim();
+        const tokenInput = document.getElementById('gitflowSettingsTokenInput');
+        const aiPromptInput = document.getElementById('gitflowSettingsAiPromptInput');
+        const token = tokenInput ? tokenInput.value.trim() : '';
+        const aiPrompt = aiPromptInput ? aiPromptInput.value.trim() : '';
         localStorage.setItem('devgit_github_token_v1', token);
-        showGitflowToast("Settings Saved", "GitHub Personal Access Token updated successfully.");
+        if (aiPrompt) {
+            localStorage.setItem('devgit_ai_prompt_template', aiPrompt);
+        } else {
+            localStorage.removeItem('devgit_ai_prompt_template');
+        }
+        showGitflowToast("Settings Saved", "Settings and custom AI system prompt saved.");
         window.closeGitflowSettingsModal();
     });
 }

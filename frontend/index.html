@@ -80,6 +80,7 @@
                 </div>
                 <div class="git-branch-popover hidden" id="gitBranchPopover">
                     <div class="git-branch-popover-title" id="gitBranchPopoverTitle">Branches</div>
+                    <input type="text" id="gitBranchPopoverSearch" placeholder="🔍 Filter branches in real-time..." class="ui-input" style="font-size: 11.5px; height: 28px; padding: 4px 8px; margin: 6px 0; background: #0b0f19;" />
                     <div class="git-branch-popover-list" id="gitBranchPopoverList"></div>
                 </div>
                 
@@ -558,9 +559,16 @@ git push origin v1.1.4</pre>
                         <div style="display: flex; flex-direction: column; gap: 6px;">
                             <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">GitHub Personal Access Token (PAT)</label>
                             <input type="password" id="gitflowSettingsTokenInput" placeholder="ghp_xxxxxxxxxxxx" class="ui-input" />
-                            <div style="font-size: 11px; color: #64748b; line-height: 1.4; margin-top: 4px;">
+                            <div style="font-size: 11px; color: #64748b; line-height: 1.4; margin-top: 2px;">
                                 Required for background remote operations (Pull, Push, Create release, etc.). 
                                 You can generate a token on GitHub under <strong>Settings &rarr; Developer Settings &rarr; Personal Access Tokens</strong> with <code>repo</code> scope.
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            <label style="font-size: 12px; font-weight: 600; color: #94a3b8;">Custom AI Commit System Prompt (Ollama)</label>
+                            <textarea id="gitflowSettingsAiPromptInput" rows="3" placeholder="Leave blank for standard Conventional Commits system prompt..." class="ui-input" style="font-family: inherit; font-size: 12px; resize: vertical;"></textarea>
+                            <div style="font-size: 11px; color: #64748b; line-height: 1.4; margin-top: 2px;">
+                                Custom system prompt template passed to Ollama when generating automated AI commit messages.
                             </div>
                         </div>
                     </div>
