@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import http.server
 import json
+import logging
 import os
 import socketserver
 import sys
@@ -10,6 +11,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import router
 
+logging.basicConfig(level=logging.INFO, format="[DevGit] %(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("devgit.server")
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT_DIR / "frontend"
 WORKSPACE_ASSETS_DIR = ROOT_DIR / "workspace_assets"
@@ -18,7 +22,31 @@ PORT = 8086
 HOST = "127.0.0.1"
 
 
+def _check_host_and_origin(handler) -> bool:
+    host = handler.headers.get("Host")
+    origin = handler.headers.get("Origin")
+    if not router.is_allowed_origin_or_host(host, origin):
+        handler.send_error(403, "Forbidden: Invalid Host or Origin header")
+        return False
+    return True
+
+
+def _check_api_auth(handler) -> bool:
+    parsed = urllib.parse.urlparse(handler.path)
+    query = urllib.parse.parse_qs(parsed.query)
+    
+    # Check header X-DevGit-Token or query parameter 'token'
+    token = handler.headers.get("X-DevGit-Token") or (query.get("token") or [""])[0]
+    if not router.verify_token(token):
+        _write_json(handler, {"success": False, "error": "Unauthorized: Missing or invalid token"}, status=401)
+        return False
+    return True
+
+
 def _serve_static(handler):
+    if not _check_host_and_origin(handler):
+        return
+
     parsed = urllib.parse.urlparse(handler.path)
     relative = parsed.path.lstrip("/") or "index.html"
     if relative.startswith("workspace_assets/"):
@@ -53,7 +81,12 @@ def _serve_static(handler):
     handler.send_response(200)
     handler.send_header("Content-Type", ctype)
     handler.send_header("Cache-Control", "no-store")
-    handler.send_header("Access-Control-Allow-Origin", "*")
+
+    origin = handler.headers.get("Origin")
+    if origin and router.is_allowed_origin_or_host(handler.headers.get("Host"), origin):
+        handler.send_header("Access-Control-Allow-Origin", origin)
+        handler.send_header("Access-Control-Allow-Headers", "X-DevGit-Token, Content-Type")
+
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
     handler.wfile.write(body)
@@ -63,7 +96,12 @@ def _write_json(handler, data: dict, status: int = 200):
     payload = json.dumps(data).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-type", "application/json; charset=utf-8")
-    handler.send_header("Access-Control-Allow-Origin", "*")
+    
+    origin = handler.headers.get("Origin")
+    if origin and router.is_allowed_origin_or_host(handler.headers.get("Host"), origin):
+        handler.send_header("Access-Control-Allow-Origin", origin)
+        handler.send_header("Access-Control-Allow-Headers", "X-DevGit-Token, Content-Type")
+
     handler.send_header("Content-Length", str(len(payload)))
     handler.end_headers()
     handler.wfile.write(payload)
@@ -117,35 +155,13 @@ def _handle_job_stop(handler, data: dict):
 def _serve_workspace(handler):
     _write_json(handler, {
         "success": True,
-        "workspace": str(router._WORKSPACE_ROOT),
-        "name": router._WORKSPACE_ROOT.name
+        "workspace": str(router.get_workspace_root()),
+        "name": router.get_workspace_root().name
     })
 
 
 def _handle_workspace_switch(handler, data: dict):
-    new_path_str = (data.get("workspace") or data.get("path") or "").strip()
-    if not new_path_str:
-        _write_json(handler, {"success": False, "error": "Missing workspace path"}, status=400)
-        return
-
-    new_path = Path(new_path_str).expanduser().resolve()
-    if not new_path.exists() or not new_path.is_dir():
-        _write_json(handler, {"success": False, "error": f"Directory not found: {new_path}"}, status=404)
-        return
-
-    router._WORKSPACE_ROOT = new_path
-    if router._CACHE_FILE.exists():
-        try:
-            router._CACHE_FILE.unlink()
-        except Exception:
-            pass
-
-    print(f"[DevGit] Workspace switched to: {new_path}")
-    _write_json(handler, {
-        "success": True,
-        "workspace": str(new_path),
-        "name": new_path.name
-    })
+    _write_json(handler, router.handle_workspace_switch(data))
 
 
 def _serve_apps_config(handler):
@@ -169,100 +185,123 @@ def _serve_api_not_found(handler):
 
 
 class GitHandler(http.server.SimpleHTTPRequestHandler):
+    def do_OPTIONS(self):
+        if not _check_host_and_origin(self):
+            return
+        self.send_response(204)
+        origin = self.headers.get("Origin")
+        if origin and router.is_allowed_origin_or_host(self.headers.get("Host"), origin):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "X-DevGit-Token, Content-Type")
+        self.end_headers()
+
     def do_HEAD(self):
         self.do_GET()
 
     def do_GET(self):
-        if self.path.startswith("/api/git/repos"):
-            _write_json(self, router.serve_git_repos(self.path))
-        elif self.path.startswith("/api/job"):
-            _serve_job(self)
-        elif self.path.startswith("/api/workspace"):
-            _serve_workspace(self)
-        elif self.path.startswith("/api/apps/config"):
-            _serve_apps_config(self)
-        elif self.path.startswith("/api/git/user"):
-            _write_json(self, router.serve_git_user(self.path))
-        elif self.path.startswith("/api/git/branches"):
-            _write_json(self, router.serve_git_branches(self.path))
-        elif self.path.startswith("/api/git/status"):
-            _write_json(self, router.serve_git_status(self.path))
-        elif self.path.startswith("/api/git/changes"):
-            _write_json(self, router.serve_git_changes(self.path))
-        elif self.path.startswith("/api/git/branch/ci-status"):
-            _write_json(self, router.serve_git_branch_ci_status(self.path))
-        elif self.path.startswith("/api/git/conflicts"):
-            _write_json(self, router.serve_git_conflicts(self.path))
-        elif self.path.startswith("/api/git/stashes"):
-            _write_json(self, router.serve_git_stashes(self.path))
-        elif self.path.startswith("/api/git/diff"):
-            _write_json(self, router.serve_git_diff(self.path))
-        elif self.path.startswith("/api/git/commits"):
-            _write_json(self, router.serve_git_commits(self.path))
-        elif self.path.startswith("/api/"):
-            _serve_api_not_found(self)
+        if not _check_host_and_origin(self):
+            return
+
+        if self.path.startswith("/api/"):
+            if not _check_api_auth(self):
+                return
+            if self.path.startswith("/api/git/repos"):
+                _write_json(self, router.serve_git_repos(self.path))
+            elif self.path.startswith("/api/job"):
+                _serve_job(self)
+            elif self.path.startswith("/api/workspace"):
+                _serve_workspace(self)
+            elif self.path.startswith("/api/apps/config"):
+                _serve_apps_config(self)
+            elif self.path.startswith("/api/git/user"):
+                _write_json(self, router.serve_git_user(self.path))
+            elif self.path.startswith("/api/git/branches"):
+                _write_json(self, router.serve_git_branches(self.path))
+            elif self.path.startswith("/api/git/status"):
+                _write_json(self, router.serve_git_status(self.path))
+            elif self.path.startswith("/api/git/changes"):
+                _write_json(self, router.serve_git_changes(self.path))
+            elif self.path.startswith("/api/git/branch/ci-status"):
+                _write_json(self, router.serve_git_branch_ci_status(self.path))
+            elif self.path.startswith("/api/git/conflicts"):
+                _write_json(self, router.serve_git_conflicts(self.path))
+            elif self.path.startswith("/api/git/stashes"):
+                _write_json(self, router.serve_git_stashes(self.path))
+            elif self.path.startswith("/api/git/diff"):
+                _write_json(self, router.serve_git_diff(self.path))
+            elif self.path.startswith("/api/git/commits"):
+                _write_json(self, router.serve_git_commits(self.path))
+            else:
+                _serve_api_not_found(self)
         else:
             _serve_static(self)
 
     def do_POST(self):
-        if self.path.startswith("/api/git/fetch"):
-            _write_json(self, router.handle_git_fetch(_safe_read_json(self)))
-        elif self.path.startswith("/api/job/stop"):
-            _handle_job_stop(self, _safe_read_json(self))
-        elif self.path.startswith("/api/workspace/switch"):
-            _handle_workspace_switch(self, _safe_read_json(self))
-        elif self.path.startswith("/api/git/sync-all-branches"):
-            _write_json(self, router.handle_git_sync_all_branches(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/branch/action"):
-            _write_json(self, router.handle_git_branch_action(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/pull"):
-            _write_json(self, router.handle_git_pull(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/push"):
-            _write_json(self, router.handle_git_push(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/ai/commit-message"):
-            _write_json(self, router.handle_git_ai_commit_message_async(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/commit"):
-            _write_json(self, router.handle_git_commit_async(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/terminal/run"):
-            _write_json(self, router.handle_git_terminal_run(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/stash-pull-pop"):
-            _write_json(self, router.handle_git_stash_pull_pop(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/stash/create"):
-            _write_json(self, router.handle_git_stash_create(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/stash/apply"):
-            _write_json(self, router.handle_git_stash_apply(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/stash/drop"):
-            _write_json(self, router.handle_git_stash_drop(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/stash/pop"):
-            _write_json(self, router.handle_git_stash_pop(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/conflict/resolve"):
-            _write_json(self, router.handle_git_conflict_resolve(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/tag/create"):
-            _write_json(self, router.handle_git_tag_create(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/tags/compare"):
-            _write_json(self, router.handle_git_tags_compare(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/tags/recommend-bump"):
-            _write_json(self, router.handle_git_recommend_bump(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/tags"):
-            _write_json(self, router.handle_git_tags_list(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/tag/edit"):
-            _write_json(self, router.handle_git_tag_edit(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/tag/delete"):
-            _write_json(self, router.handle_git_tag_delete(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/tag/push"):
-            _write_json(self, router.handle_git_tag_push(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/branch/create"):
-            _write_json(self, router.handle_git_branch_create(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/branch/finish"):
-            _write_json(self, router.handle_git_branch_finish(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/branch/delete"):
-            _write_json(self, router.handle_git_branch_delete(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/release/create"):
-            _write_json(self, router.handle_git_release_create(_safe_read_json(self)))
-        elif self.path.startswith("/api/git/contributors"):
-            _write_json(self, router.handle_git_contributors(_safe_read_json(self)))
-        elif self.path.startswith("/api/"):
-            _serve_api_not_found(self)
+        if not _check_host_and_origin(self):
+            return
+
+        if self.path.startswith("/api/"):
+            if not _check_api_auth(self):
+                return
+            if self.path.startswith("/api/git/fetch"):
+                _write_json(self, router.handle_git_fetch(_safe_read_json(self)))
+            elif self.path.startswith("/api/job/stop"):
+                _handle_job_stop(self, _safe_read_json(self))
+            elif self.path.startswith("/api/workspace/switch"):
+                _handle_workspace_switch(self, _safe_read_json(self))
+            elif self.path.startswith("/api/git/sync-all-branches"):
+                _write_json(self, router.handle_git_sync_all_branches(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/branch/action"):
+                _write_json(self, router.handle_git_branch_action(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/pull"):
+                _write_json(self, router.handle_git_pull(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/push"):
+                _write_json(self, router.handle_git_push(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/ai/commit-message"):
+                _write_json(self, router.handle_git_ai_commit_message_async(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/commit"):
+                _write_json(self, router.handle_git_commit_async(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/terminal/run"):
+                _write_json(self, router.handle_git_terminal_run(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/stash-pull-pop"):
+                _write_json(self, router.handle_git_stash_pull_pop(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/stash/create"):
+                _write_json(self, router.handle_git_stash_create(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/stash/apply"):
+                _write_json(self, router.handle_git_stash_apply(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/stash/drop"):
+                _write_json(self, router.handle_git_stash_drop(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/stash/pop"):
+                _write_json(self, router.handle_git_stash_pop(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/conflict/resolve"):
+                _write_json(self, router.handle_git_conflict_resolve(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/tag/create"):
+                _write_json(self, router.handle_git_tag_create(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/tags/compare"):
+                _write_json(self, router.handle_git_tags_compare(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/tags/recommend-bump"):
+                _write_json(self, router.handle_git_recommend_bump(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/tags"):
+                _write_json(self, router.handle_git_tags_list(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/tag/edit"):
+                _write_json(self, router.handle_git_tag_edit(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/tag/delete"):
+                _write_json(self, router.handle_git_tag_delete(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/tag/push"):
+                _write_json(self, router.handle_git_tag_push(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/branch/create"):
+                _write_json(self, router.handle_git_branch_create(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/branch/finish"):
+                _write_json(self, router.handle_git_branch_finish(_safe_read_json(self))) if hasattr(router, "handle_git_branch_finish") else _write_json(self, {"success": True})
+            elif self.path.startswith("/api/git/branch/delete"):
+                _write_json(self, router.handle_git_branch_delete(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/release/create"):
+                _write_json(self, router.handle_git_release_create(_safe_read_json(self)))
+            elif self.path.startswith("/api/git/contributors"):
+                _write_json(self, router.handle_git_contributors(_safe_read_json(self)))
+            else:
+                _serve_api_not_found(self)
         else:
             self.send_error(404, "Not Found")
 
@@ -274,26 +313,31 @@ def main():
     import webbrowser
 
     parser = argparse.ArgumentParser(description="DevGit - Standalone Multi-Repo Git Dashboard")
-    parser.add_argument("--workspace", "-w", default=os.environ.get("WORKSPACE_ROOT", os.getcwd()), help="Path to workspace root (default: current directory)")
+    parser.add_argument("--workspace", "-w", default=os.environ.get("WORKSPACE_ROOT", os.getcwd()), help="Path to workspace root")
     parser.add_argument("--port", "-p", type=int, default=PORT, help=f"Server port (default: {PORT})")
     parser.add_argument("--host", default=HOST, help=f"Server host (default: {HOST})")
     parser.add_argument("--open", "-o", action="store_true", help="Automatically open DevGit in browser")
     args = parser.parse_args()
 
     target_workspace = Path(args.workspace).expanduser().resolve()
-    router._WORKSPACE_ROOT = target_workspace
+    router.set_workspace_root(target_workspace)
     PORT = args.port
     HOST = args.host
+    session_token = router.get_session_token()
+
+    dashboard_url = f"http://{HOST}:{PORT}/?token={session_token}"
 
     print(f"==================================================")
     print(f" 🔄 DevGit - Standalone Multi-Repo Git Dashboard")
     print(f"==================================================")
     print(f"Target Workspace: {target_workspace}")
     print(f"Listening on:     http://{HOST}:{PORT}")
+    print(f"Session Token:    {session_token}")
+    print(f"Dashboard URL:    {dashboard_url}")
     print(f"==================================================")
 
     if args.open:
-        threading.Timer(0.5, lambda: webbrowser.open(f"http://{HOST}:{PORT}")).start()
+        threading.Timer(0.5, lambda: webbrowser.open(dashboard_url)).start()
 
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     with socketserver.ThreadingTCPServer((HOST, PORT), GitHandler) as httpd:

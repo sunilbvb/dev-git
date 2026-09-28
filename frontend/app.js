@@ -2,6 +2,42 @@
 // Git Operations & AI Commit Panel Logic
 // ==========================================
 
+(function initDevGitAuth() {
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('token');
+    if (tokenFromUrl) {
+        sessionStorage.setItem('devgit_token', tokenFromUrl);
+        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+    }
+
+    window.getDevGitToken = function() {
+        return sessionStorage.getItem('devgit_token') || localStorage.getItem('devgit_token') || '';
+    };
+
+    const nativeFetch = window.fetch;
+    window.fetch = function(input, init) {
+        init = init || {};
+        const urlStr = typeof input === 'string' ? input : (input && input.url ? input.url : '');
+        const token = window.getDevGitToken();
+        if (token && (urlStr.includes('/api/') || (typeof input === 'string' && input.startsWith('/api/')))) {
+            init.headers = init.headers || {};
+            if (init.headers instanceof Headers) {
+                if (!init.headers.has('X-DevGit-Token')) {
+                    init.headers.append('X-DevGit-Token', token);
+                }
+            } else if (Array.isArray(init.headers)) {
+                init.headers.push(['X-DevGit-Token', token]);
+            } else {
+                if (!init.headers['X-DevGit-Token']) {
+                    init.headers['X-DevGit-Token'] = token;
+                }
+            }
+        }
+        return nativeFetch.call(this, input, init);
+    };
+})();
+
 if (typeof window.apiUrl !== 'function') {
     window.apiUrl = function(path) {
         const p = String(path || '');
