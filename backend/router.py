@@ -103,6 +103,12 @@ def handle_workspace_switch(data: dict) -> dict:
     if not new_path.exists() or not new_path.is_dir():
         return {"success": False, "error": f"Directory does not exist: {new_path}"}
 
+    home = Path.home().resolve()
+    current_root = get_workspace_root().resolve()
+    allowed_roots = [home, current_root]
+    if not any(new_path == r or r in new_path.parents for r in allowed_roots):
+        return {"success": False, "error": f"Workspace directory must be within $HOME ({home})"}
+
     set_workspace_root(new_path)
     if _CACHE_FILE.exists():
         try:

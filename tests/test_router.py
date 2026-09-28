@@ -99,6 +99,11 @@ class TestDevGitRouter(unittest.TestCase):
         self.assertFalse(res2.get("success"))
         self.assertIn("does not exist", res2.get("error", "").lower())
 
+        # Unauthorized external path outside $HOME / workspace
+        res_unauthorized = router.handle_workspace_switch({"workspacePath": "/etc"})
+        self.assertFalse(res_unauthorized.get("success"))
+        self.assertIn("must be within", res_unauthorized.get("error", "").lower())
+
         # Valid path
         res3 = router.handle_workspace_switch({"workspacePath": str(self.workspace)})
         self.assertTrue(res3.get("success"))

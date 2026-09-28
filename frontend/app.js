@@ -7,12 +7,17 @@
     const tokenFromUrl = params.get('token');
     if (tokenFromUrl) {
         sessionStorage.setItem('devgit_token', tokenFromUrl);
-        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        params.delete('token');
+        const remainingQuery = params.toString() ? ('?' + params.toString()) : '';
+        const cleanUrl = window.location.pathname + remainingQuery + window.location.hash;
         window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
     }
+    try {
+        localStorage.removeItem('devgit_token');
+    } catch (_) {}
 
     window.getDevGitToken = function() {
-        return sessionStorage.getItem('devgit_token') || localStorage.getItem('devgit_token') || '';
+        return sessionStorage.getItem('devgit_token') || '';
     };
 
     const nativeFetch = window.fetch;
@@ -540,7 +545,7 @@ function renderGitRepos(repos) {
             const stashCount = Number(r.stashCount || 0);
             let stashBadge = '';
             if (stashCount > 0) {
-                stashBadge = `<span class="ui-badge" data-variant="secondary" style="background: rgba(138, 180, 255, 0.15); color: #8ab4ff; border: 1px solid rgba(138, 180, 255, 0.3); font-size: 10px; cursor: pointer;" title="View ${stashCount} saved stash(es)" onclick="event.stopPropagation(); openStashModal('${rawPath.replace(/'/g, "\\'")}')">📦 ${stashCount}</span>`;
+                stashBadge = `<span class="ui-badge" data-variant="secondary" style="background: rgba(138, 180, 255, 0.15); color: #8ab4ff; border: 1px solid rgba(138, 180, 255, 0.3); font-size: 10px; cursor: pointer;" title="View ${stashCount} saved stash(es)" onclick="event.stopPropagation(); openStashModal(decodeURIComponent('${pathEnc}'))">📦 ${stashCount}</span>`;
             }
 
             // Branch count from cache, fallback to placeholder
@@ -567,7 +572,7 @@ function renderGitRepos(repos) {
                     } else if (!isPackage && !iconUrl.startsWith('/api/')) {
                         iconUrl = `/workspace_assets/${iconUrl}`;
                     }
-                    headerIcon = `<img src="${iconUrl}" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;" />`;
+                    headerIcon = `<img src="${escapeHtml(iconUrl)}" style="width: 18px; height: 18px; border-radius: 4px; object-fit: contain;" />`;
                 } else {
                     lucideIcon = 'package';
                     headerIcon = `<i data-lucide="${lucideIcon}" style="width: 18px; height: 18px; color: #3b82f6; display: inline-flex; align-items: center; justify-content: center;"></i>`;
@@ -578,11 +583,11 @@ function renderGitRepos(repos) {
 
             const conflictCardStyle = hasConflict ? 'border-color: rgba(239, 68, 68, 0.6) !important; box-shadow: 0 0 14px rgba(239, 68, 68, 0.25);' : '';
             const actionQuickBtn = hasConflict ? `
-                <button class="ui-button" data-variant="danger" data-size="xs" onclick="event.stopPropagation(); openConflictModal('${rawPath.replace(/'/g, "\\'")}')" style="padding: 2px 8px; font-size: 11px; white-space: nowrap;">⚠️ Resolve</button>
+                <button class="ui-button" data-variant="danger" data-size="xs" onclick="event.stopPropagation(); openConflictModal(decodeURIComponent('${pathEnc}'))" style="padding: 2px 8px; font-size: 11px; white-space: nowrap;">⚠️ Resolve</button>
             ` : '';
 
             return `
-                <div class="compact-app-card git-repo" data-repo-path-enc="${pathEnc}" onclick="openRepoDetailScreen('${rawPath.replace(/'/g, "\\'")}')" style="--app-color: #3b82f6; ${conflictCardStyle}">
+                <div class="compact-app-card git-repo" data-repo-path-enc="${pathEnc}" onclick="openRepoDetailScreen(decodeURIComponent('${pathEnc}'))" style="--app-color: #3b82f6; ${conflictCardStyle}">
                     <div class="compact-app-card-icon">${headerIcon || '<i data-lucide="box"></i>'}</div>
                     <div style="min-width: 0; flex: 1;">
                         <h3 title="${escapeHtml(name)}">${escapeHtml(name)}</h3>
@@ -885,8 +890,8 @@ function _gs2BuildPendingSection(rawPath, pending, head) {
         const behind = Number(b.behind || 0);
         const ahead  = Number(b.ahead  || 0);
         const isHead = b.name === head;
-        const escapedName = (b.name || '').replace(/'/g, "\\'");
-        const escapedPath = rawPath.replace(/'/g, "\\'");
+        const encName = encodeURIComponent(b.name || '');
+        const encPath = encodeURIComponent(rawPath);
         let statusLine = '';
         if (behind > 0 && ahead > 0) statusLine = `<span class="ui-badge" data-variant="warning">↑${ahead} ↓${behind}</span>`;
         else if (behind > 0) statusLine = `<span class="ui-badge" data-variant="primary">↓${behind} behind</span>`;
@@ -903,10 +908,10 @@ function _gs2BuildPendingSection(rawPath, pending, head) {
                 </div>
                 <div class="ui-card-body" style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; flex-grow: 1; justify-content: flex-end;">
                     <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
-                        ${behind > 0 ? `<button class="ui-button" data-variant="primary" data-size="sm" onclick="_gs2BranchAction('pull','${escapedName}','${escapedPath}', this)">↓ Pull</button>` : ''}
-                        ${ahead > 0 ? `<button class="ui-button" data-variant="success" data-size="sm" onclick="_gs2BranchAction('push','${escapedName}','${escapedPath}', this)">↑ Push</button>` : ''}
-                        <button class="ui-button" data-variant="outline" data-size="sm" onclick="_gs2BranchAction('fetch','${escapedName}','${escapedPath}', this)">Fetch</button>
-                        <button class="ui-button" data-variant="secondary" data-size="sm" onclick="_gs2BranchAction('checkout','${escapedName}','${escapedPath}', this)">Check Out</button>
+                        ${behind > 0 ? `<button class="ui-button" data-variant="primary" data-size="sm" onclick="_gs2BranchAction('pull', decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">↓ Pull</button>` : ''}
+                        ${ahead > 0 ? `<button class="ui-button" data-variant="success" data-size="sm" onclick="_gs2BranchAction('push', decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">↑ Push</button>` : ''}
+                        <button class="ui-button" data-variant="outline" data-size="sm" onclick="_gs2BranchAction('fetch', decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">Fetch</button>
+                        <button class="ui-button" data-variant="secondary" data-size="sm" onclick="_gs2BranchAction('checkout', decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">Check Out</button>
                     </div>
                 </div>
             </div>
@@ -1012,8 +1017,8 @@ function _gs2BuildGroup(rawPath, group, head) {
             const behind = Number(b.behind || 0);
             const ahead  = Number(b.ahead  || 0);
             const isHead = b.name === head;
-            const escapedName = (b.name || '').replace(/'/g, "\\'");
-            const escapedPath = rawPath.replace(/'/g, "\\'");
+            const encName = encodeURIComponent(b.name || '');
+            const encPath = encodeURIComponent(rawPath);
             let badge = '';
             if (behind > 0 && ahead > 0) badge = `<span class="ui-badge" data-variant="warning">↑${ahead} ↓${behind}</span>`;
             else if (behind > 0) badge = `<span class="ui-badge" data-variant="primary">↓${behind} behind</span>`;
@@ -1032,14 +1037,14 @@ function _gs2BuildGroup(rawPath, group, head) {
                     </div>
                     <div class="ui-card-body" style="padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; flex-grow: 1; justify-content: flex-end;">
                         <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
-                            <button class="ui-button" data-variant="outline" data-size="sm" onclick="_gs2BranchAction('fetch','${escapedName}','${escapedPath}', this)">Fetch</button>
-                            <button class="ui-button" data-variant="secondary" data-size="sm" onclick="_gs2BranchAction('checkout','${escapedName}','${escapedPath}', this)">Check Out</button>
-                            ${behind > 0 ? `<button class="ui-button" data-variant="primary" data-size="sm" onclick="_gs2BranchAction('pull','${escapedName}','${escapedPath}', this)">↓ Pull</button>` : ''}
-                            ${ahead > 0 ? `<button class="ui-button" data-variant="success" data-size="sm" onclick="_gs2BranchAction('push','${escapedName}','${escapedPath}', this)">↑ Push</button>` : ''}
-                            <button class="ui-button" data-variant="outline" data-size="sm" onclick="openGitRenameBranchModal('${escapedPath}', '${escapedName}', this)">Rename</button>
-                            <button class="ui-button" data-variant="outline" data-size="sm" onclick="openBranchCommitsScreen('${escapedName}','${escapedPath}', this)">Commits</button>
-                            <button class="ui-button" data-variant="outline" data-size="sm" onclick="openGitMergeModal('${escapedPath}', '${escapedName}', this)">Merge</button>
-                            <button class="ui-button" data-variant="danger" data-size="sm" ${isHead ? 'disabled' : ''} onclick="_gs2BranchDelete('${escapedName}','${escapedPath}', this)">Delete</button>
+                            <button class="ui-button" data-variant="outline" data-size="sm" onclick="_gs2BranchAction('fetch', decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">Fetch</button>
+                            <button class="ui-button" data-variant="secondary" data-size="sm" onclick="_gs2BranchAction('checkout', decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">Check Out</button>
+                            ${behind > 0 ? `<button class="ui-button" data-variant="primary" data-size="sm" onclick="_gs2BranchAction('pull', decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">↓ Pull</button>` : ''}
+                            ${ahead > 0 ? `<button class="ui-button" data-variant="success" data-size="sm" onclick="_gs2BranchAction('push', decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">↑ Push</button>` : ''}
+                            <button class="ui-button" data-variant="outline" data-size="sm" onclick="openGitRenameBranchModal(decodeURIComponent('${encPath}'), decodeURIComponent('${encName}'), this)">Rename</button>
+                            <button class="ui-button" data-variant="outline" data-size="sm" onclick="openBranchCommitsScreen(decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">Commits</button>
+                            <button class="ui-button" data-variant="outline" data-size="sm" onclick="openGitMergeModal(decodeURIComponent('${encPath}'), decodeURIComponent('${encName}'), this)">Merge</button>
+                            <button class="ui-button" data-variant="danger" data-size="sm" ${isHead ? 'disabled' : ''} onclick="_gs2BranchDelete(decodeURIComponent('${encName}'), decodeURIComponent('${encPath}'), this)">Delete</button>
                         </div>
                     </div>
                 </div>
@@ -1695,7 +1700,7 @@ function getBranchInsightsHtml(repoPath, data) {
                     <button class="api-btn small git-branch-action-btn merge-this" type="button" data-action="branch-action-merge-this" data-branch="${bEsc}" title="Integrate changes: Merge '${bEsc}' into your active branch (${hEsc}) to combine its ${b.behind} commits into your work.">
                         ← Integrate into ${hEsc}
                     </button>
-                    <button class="api-btn small git-branch-action-btn" type="button" title="Rename this branch locally with optional remote update" onclick="openGitRenameBranchModal('${escapeHtml(repoPath)}', '${bEsc}', this); event.stopPropagation();" style="background: rgba(138, 180, 255, 0.08); border-color: rgba(138, 180, 255, 0.18); color: #8ab4ff;">
+                    <button class="api-btn small git-branch-action-btn" type="button" title="Rename this branch locally with optional remote update" onclick="openGitRenameBranchModal(decodeURIComponent('${encodeURIComponent(repoPath)}'), decodeURIComponent('${encodeURIComponent(b.branch)}'), this); event.stopPropagation();" style="background: rgba(138, 180, 255, 0.08); border-color: rgba(138, 180, 255, 0.18); color: #8ab4ff;">
                         ⟲ Rename
                     </button>
                 </div>
@@ -3742,9 +3747,9 @@ window.loadGitStashes = async (repoPath) => {
                         <span style="color:#cbd5e1; font-size:11px; word-break:break-all;">${escapeHtml(stash.description)}</span>
                     </div>
                     <div style="display:flex; gap:6px;">
-                        <button class="api-btn small primary" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px; background:#3b82f6; border-color:#3b82f6;" onclick="popGitStash(event, '${escapeHtml(repoPath)}', '${escapeHtml(stash.ref)}')">Pop</button>
-                        <button class="api-btn small" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px;" onclick="applyGitStash(event, '${escapeHtml(repoPath)}', '${escapeHtml(stash.ref)}')">Apply</button>
-                        <button class="api-btn small danger" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px; background:#e53e3e; border-color:#e53e3e;" onclick="dropGitStash(event, '${escapeHtml(repoPath)}', '${escapeHtml(stash.ref)}')">Drop</button>
+                        <button class="api-btn small primary" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px; background:#3b82f6; border-color:#3b82f6;" onclick="popGitStash(event, decodeURIComponent('${encodeURIComponent(repoPath)}'), decodeURIComponent('${encodeURIComponent(stash.ref)}'))">Pop</button>
+                        <button class="api-btn small" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px;" onclick="applyGitStash(event, decodeURIComponent('${encodeURIComponent(repoPath)}'), decodeURIComponent('${encodeURIComponent(stash.ref)}'))">Apply</button>
+                        <button class="api-btn small danger" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px; background:#e53e3e; border-color:#e53e3e;" onclick="dropGitStash(event, decodeURIComponent('${encodeURIComponent(repoPath)}'), decodeURIComponent('${encodeURIComponent(stash.ref)}'))">Drop</button>
                     </div>
                 </div>
             `;
@@ -3921,8 +3926,8 @@ window.openConflictModal = async (repoPath) => {
                         <span style="color:#718096; font-size:10px; word-break:break-all;">${escapeHtml(file)}</span>
                     </div>
                     <div style="display:flex; gap:6px;">
-                        <button class="api-btn small btn-ours" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px;" onclick="resolveConflict('${escapeHtml(repoPath)}', '${escapeHtml(file)}', 'ours', event)">Ours (Keep Local)</button>
-                        <button class="api-btn small primary btn-theirs" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px; background:#4299e1; border-color:#4299e1;" onclick="resolveConflict('${escapeHtml(repoPath)}', '${escapeHtml(file)}', 'theirs', event)">Theirs (Take Incoming)</button>
+                        <button class="api-btn small btn-ours" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px;" onclick="resolveConflict(decodeURIComponent('${encodeURIComponent(repoPath)}'), decodeURIComponent('${encodeURIComponent(file)}'), 'ours', event)">Ours (Keep Local)</button>
+                        <button class="api-btn small primary btn-theirs" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px; background:#4299e1; border-color:#4299e1;" onclick="resolveConflict(decodeURIComponent('${encodeURIComponent(repoPath)}'), decodeURIComponent('${encodeURIComponent(file)}'), 'theirs', event)">Theirs (Take Incoming)</button>
                     </div>
                 </div>
             `;

@@ -28,6 +28,7 @@ class TestDevGitAuth(unittest.TestCase):
         # Invalid / Malicious external origin or host
         self.assertFalse(auth.is_allowed_origin_or_host("attacker.com", "http://attacker.com"))
         self.assertFalse(auth.is_allowed_origin_or_host("localhost:8086", "http://evil.com"))
+        self.assertFalse(auth.is_allowed_origin_or_host("localhost:8086", "null"))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,16 @@
 // ==========================================
 // Gitflow Developer Console Implementation
 // ==========================================
+const escapeHtml = (typeof window !== 'undefined' && window.escapeHtml) ? window.escapeHtml : function(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+};
+
 let _selectedGitflowRepo = null;
 const _gitflowStateByRepo = new Map();
 let _gitflowBaseBranchPicker = null;
@@ -161,7 +171,7 @@ window.selectGitflowRepo = async function selectGitflowRepo(repoPath, cardElemen
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; gap: 16px; background: rgba(11, 14, 32, 0.4); border: 1px solid #151d3f; border-radius: 10px; padding: 24px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
                     <div style="font-size: 32px;">⚠️</div>
                     <div style="color: #ff8a8a; font-weight: 600; font-size: 14px;">Failed to Load Repository History</div>
-                    <div style="color: #a0aec0; font-size: 12px; max-width: 400px; word-break: break-all;">${err.message}</div>
+                    <div style="color: #a0aec0; font-size: 12px; max-width: 400px; word-break: break-all;">${escapeHtml(err.message)}</div>
                     <button class="api-btn primary small" style="margin-top: 10px;" onclick="selectGitflowRepo(decodeURIComponent('${encodeURIComponent(repoPath)}'))">Retry Connection</button>
                 </div>
             `;
@@ -204,7 +214,7 @@ function renderGitflowConsole(repoPath) {
             <div class="gitflow-metric-card" style="padding: 16px 20px;">
                 <div class="gitflow-metric-content">
                     <span class="gitflow-metric-title">Production Status</span>
-                    <span class="gitflow-metric-value">${state.productionVersion}</span>
+                    <span class="gitflow-metric-value">${escapeHtml(state.productionVersion)}</span>
                     <span class="gitflow-metric-subtitle">${hotCount} Hotfixes this month</span>
                 </div>
             </div>
@@ -392,9 +402,9 @@ function updateGitflowTagModalPreview() {
     if (!noteEl) return;
 
     if (useMelos) {
-        noteEl.innerHTML = `💡 <strong>Release Tag Convention (Melos):</strong> App repository (<code>${repoName}</code>) will be tagged as <code>${tagVer}</code>. All package dependencies in scope will be tagged as <code>${slug}-${tagVer}</code>. Repos with existing tags will be skipped.`;
+        noteEl.innerHTML = `💡 <strong>Release Tag Convention (Melos):</strong> App repository (<code>${escapeHtml(repoName)}</code>) will be tagged as <code>${escapeHtml(tagVer)}</code>. All package dependencies in scope will be tagged as <code>${escapeHtml(slug)}-${escapeHtml(tagVer)}</code>. Repos with existing tags will be skipped.`;
     } else {
-        noteEl.innerHTML = `💡 <strong>Single Repository Mode:</strong> Tag <code>${tagVer}</code> will be created for repository <code>${repoName}</code> ONLY. Package dependencies will NOT be tagged.`;
+        noteEl.innerHTML = `💡 <strong>Single Repository Mode:</strong> Tag <code>${escapeHtml(tagVer)}</code> will be created for repository <code>${escapeHtml(repoName)}</code> ONLY. Package dependencies will NOT be tagged.`;
     }
 }
 
@@ -538,8 +548,8 @@ function showGitflowToast(title, body, type = 'success') {
     toast.innerHTML = `
         <div style="font-size:18px;">${icon}</div>
         <div>
-            <div style="font-weight: 700; margin-bottom: 2px;">${title}</div>
-            <div style="font-size: 11px; color: #a0aec0;">${body}</div>
+            <div style="font-weight: 700; margin-bottom: 2px;">${escapeHtml(title)}</div>
+            <div style="font-size: 11px; color: #a0aec0;">${escapeHtml(body)}</div>
         </div>
     `;
 
@@ -976,24 +986,26 @@ window.openGitflowViewTagsModal = async () => {
             
             let actionsHtml = '';
             if (!tag.pushed) {
-                actionsHtml += `<button class="ui-button" data-variant="outline" data-size="sm" onclick="openGitflowEditTagModal('${tag.version}', \`${tag.message.replace(/`/g, '\\`').replace(/'/g, "\\'")}\`)">Edit</button> `;
-                actionsHtml += `<button class="ui-button" data-variant="success" data-size="sm" onclick="publishGitflowTag('${tag.version}')">Publish</button> `;
-                actionsHtml += `<button class="ui-button" data-variant="danger" data-size="sm" onclick="deleteGitflowTag('${tag.version}')">Delete</button>`;
+                const encVer = encodeURIComponent(tag.version || '');
+                const encMsg = encodeURIComponent(tag.message || '');
+                actionsHtml += `<button class="ui-button" data-variant="outline" data-size="sm" onclick="openGitflowEditTagModal(decodeURIComponent('${encVer}'), decodeURIComponent('${encMsg}'))">Edit</button> `;
+                actionsHtml += `<button class="ui-button" data-variant="success" data-size="sm" onclick="publishGitflowTag(decodeURIComponent('${encVer}'))">Publish</button> `;
+                actionsHtml += `<button class="ui-button" data-variant="danger" data-size="sm" onclick="deleteGitflowTag(decodeURIComponent('${encVer}'))">Delete</button>`;
             } else {
                 actionsHtml += `<span style="color:#64748b; font-size:11px;">Pushed to Remote</span>`;
             }
 
             let subReposHtml = '';
             if (data.isMelos && tag.repos && tag.repos.length > 0) {
-                subReposHtml = `<div class="sub-repos-list">🏷️ Active on: ${tag.repos.map(r => `${r.repoName} (${r.tagName})`).join(', ')}</div>`;
+                subReposHtml = `<div class="sub-repos-list">🏷️ Active on: ${tag.repos.map(r => `${escapeHtml(r.repoName)} (${escapeHtml(r.tagName)})`).join(', ')}</div>`;
             }
 
             tr.innerHTML = `
                 <td style="font-weight: 700; color: #fff;">
-                    ${tag.version}
+                    ${escapeHtml(tag.version)}
                     ${subReposHtml}
                 </td>
-                <td style="white-space: pre-wrap; line-height: 1.4;">${tag.message}</td>
+                <td style="white-space: pre-wrap; line-height: 1.4;">${escapeHtml(tag.message)}</td>
                 <td>${statusBadge}</td>
                 <td>${actionsHtml}</td>
             `;

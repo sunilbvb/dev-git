@@ -40,6 +40,13 @@ class TestTerminalSecurity(unittest.TestCase):
             ["diff", "--exec-path=/tmp"],
             ["branch", "-c=foo"],
             ["checkout", "; rm -rf /"],
+            ["rebase", "-x", "touch /tmp/pwn"],
+            ["rebase", "-xid"],
+            ["rebase", "--exec", "cat /etc/passwd"],
+            ["rebase", "--exec=whoami"],
+            ["log", "--output=/tmp/evil.txt"],
+            ["log", "--output", "/tmp/evil.txt"],
+            ["diff", "--output=/tmp/evil.txt"],
         ]
         for cmd in dangerous_flags:
             ok, reason = validate_git_terminal_args(cmd)

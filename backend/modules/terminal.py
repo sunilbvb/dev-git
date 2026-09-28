@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import shlex
 import subprocess
 import threading
@@ -18,8 +20,12 @@ ALLOWED_SUBCOMMANDS = {
 
 DANGEROUS_FLAGS = {
     "-c", "--config", "--exec-path", "--upload-pack", "--receive-pack",
-    "--config-env", "-C", "--git-dir", "--work-tree"
+    "--config-env", "-C", "--git-dir", "--work-tree",
+    "-x", "--exec", "--output"
 }
+
+# Type alias helper for return values
+Tuple_Bool_Reason = tuple[bool, str]
 
 
 def validate_git_terminal_args(args: List[str]) -> Tuple_Bool_Reason:
@@ -35,15 +41,19 @@ def validate_git_terminal_args(args: List[str]) -> Tuple_Bool_Reason:
             return False, f"Flag '{arg}' is forbidden for security reasons"
         if arg.startswith("-c") and len(arg) > 2 and not arg.startswith("--"):
             return False, f"Flag '{arg}' is forbidden for security reasons"
+        # Block rebase -x / --exec command execution vectors
+        if arg == "-x" or (arg.startswith("-x") and not arg.startswith("--")):
+            return False, f"Flag '{arg}' is forbidden for security reasons"
+        if arg.startswith("--exec"):
+            return False, f"Flag '{arg}' is forbidden for security reasons"
+        # Block --output arbitrary file write vectors
+        if arg.startswith("--output"):
+            return False, f"Flag '{arg}' is forbidden for security reasons"
         # Check for shell execution vectors
         if any(char in arg for char in [";", "|", "`", "$("]):
             return False, "Command contains invalid characters"
 
     return True, ""
-
-
-# Type alias helper for return values
-Tuple_Bool_Reason = tuple[bool, str]
 
 
 def start_git_terminal_job(job_id: str, repo: Path, args: List[str]) -> None:
