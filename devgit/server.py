@@ -252,6 +252,8 @@ class GitHandler(http.server.SimpleHTTPRequestHandler):
                 _write_json(self, router.serve_git_diff(self.path))
             elif self.path.startswith("/api/git/commits"):
                 _write_json(self, router.serve_git_commits(self.path))
+            elif self.path.startswith("/api/git/worktrees"):
+                _write_json(self, router.serve_git_worktrees(self.path))
             else:
                 _serve_api_not_found(self)
         else:
@@ -323,6 +325,12 @@ class GitHandler(http.server.SimpleHTTPRequestHandler):
                 _write_json(self, router.handle_git_release_create(payload))
             elif self.path.startswith("/api/git/contributors"):
                 _write_json(self, router.handle_git_contributors(payload))
+            elif self.path.startswith("/api/git/worktree/add"):
+                _write_json(self, router.handle_git_worktree_add(payload))
+            elif self.path.startswith("/api/git/worktree/remove"):
+                _write_json(self, router.handle_git_worktree_remove(payload))
+            elif self.path.startswith("/api/git/worktree/prune"):
+                _write_json(self, router.handle_git_worktree_prune(payload))
             else:
                 _serve_api_not_found(self)
         else:

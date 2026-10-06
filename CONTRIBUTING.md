@@ -217,8 +217,8 @@ Looking for somewhere to start? Here is our curated list of open tasks. If you'd
 | Task | Description | Status | Key Files |
 | :--- | :--- | :---: | :--- |
 | **Automated Unit Test Suite** | Standard library `unittest` suite (`./scripts/run_tests.sh`) testing router & discovery. | ✅ Done | `tests/test_router.py`, `tests/test_discovery.py` |
-| **Git Worktree Support** | Discover and visually group Git worktrees pointing to the same repository root. | ⏳ Open | `backend/router.py`, `frontend/app.js` |
-| **Server-Sent Events (SSE)** | Stream repository status updates via standard library HTTP SSE when git index changes. | ⏳ Open | `backend/server.py` |
+| **Git Worktree Support** | Discover, visually group, and manage Git worktrees with 1-click modal & hotkey `T`. | ✅ Done | `devgit/modules/worktrees.py`, `devgit/router.py`, `devgit/frontend/app.js` |
+| **Server-Sent Events (SSE)** | Stream repository status updates via standard library HTTP SSE when git index changes. | ⏳ Open | `devgit/server.py` |
 
 ---
 

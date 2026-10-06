@@ -37,16 +37,41 @@ def validate_ref(ref_str: str) -> Tuple[bool, str]:
     if re.search(r"[\s;&|`$\\\n\r\t]", ref):
         return False, f"Ref name contains forbidden characters: '{ref}'"
 
+    # Forbid directory traversal patterns and absolute / trailing slash paths
+    if ref.startswith("/") or ref.endswith("/") or "//" in ref:
+        return False, f"Ref name cannot start/end with slash or contain consecutive slashes: '{ref}'"
+    if ref == ".." or ref == "." or ref.startswith("../") or "/../" in ref or ref.endswith("/.."):
+        return False, f"Ref name cannot contain directory traversal: '{ref}'"
+
     # Handle stash ref format e.g. stash@{0}
     if ref.startswith("stash@{") and ref.endswith("}"):
         inner = ref[7:-1]
         if inner.isdigit():
             return True, ""
+        return False, f"Invalid stash ref format: '{ref}'"
 
-    # Check for revision expressions (HEAD~1, main~2, commit^1, range..)
-    if any(char in ref for char in ["~", "^", ".."]):
-        if re.match(r"^[a-zA-Z0-9_\-./~^]+$", ref):
-            return True, ""
+    # Check for ref range expressions (e.g. v1.0..v2.0 or HEAD~1..HEAD)
+    if ".." in ref:
+        parts = ref.split("..")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            return False, f"Invalid ref range: '{ref}'"
+        ok_l, r_l = validate_ref(parts[0])
+        if not ok_l:
+            return False, f"Invalid ref in range '{parts[0]}': {r_l}"
+        ok_r, r_r = validate_ref(parts[1])
+        if not ok_r:
+            return False, f"Invalid ref in range '{parts[1]}': {r_r}"
+        return True, ""
+
+    # Check for revision expressions (e.g. HEAD~1, main~2, commit^1)
+    if "~" in ref or "^" in ref:
+        if re.match(r"^[a-zA-Z0-9_\-./]+([~^]\d*)+$", ref):
+            base = re.split(r"[~^]", ref, maxsplit=1)[0]
+            ok_base, r_base = validate_ref(base)
+            if ok_base:
+                return True, ""
+            return False, f"Invalid base ref in revision '{ref}': {r_base}"
+        return False, f"Invalid revision syntax: '{ref}'"
 
     # Check git ref format for standard branch/tag names
     try:
@@ -208,6 +233,31 @@ def git_repo_status(repo: Path, branch: Optional[str] = None) -> Dict[str, Any]:
             except ValueError:
                 pass
 
+    # Worktree detection
+    is_worktree = (repo / ".git").is_file()
+    worktree_count = 1
+    main_worktree = None
+    if is_worktree:
+        try:
+            git_content = (repo / ".git").read_text(encoding="utf-8").strip()
+            if git_content.startswith("gitdir:"):
+                gitdir_str = git_content[7:].strip()
+                gitdir_path = Path(gitdir_str)
+                if not gitdir_path.is_absolute():
+                    gitdir_path = (repo / gitdir_path).resolve()
+                if "worktrees" in gitdir_path.parts:
+                    idx = gitdir_path.parts.index("worktrees")
+                    main_git_dir = Path(*gitdir_path.parts[:idx])
+                    main_worktree = str(main_git_dir.parent)
+        except Exception:
+            pass
+    elif (repo / ".git" / "worktrees").is_dir():
+        try:
+            wt_subdirs = [p for p in (repo / ".git" / "worktrees").iterdir() if p.is_dir()]
+            worktree_count = 1 + len(wt_subdirs)
+        except Exception:
+            worktree_count = 1
+
     return {
         "name": repo.name,
         "path": str(repo),
@@ -218,4 +268,7 @@ def git_repo_status(repo: Path, branch: Optional[str] = None) -> Dict[str, Any]:
         "behind": behind,
         "conflict": has_conflicts,
         "stashCount": stash_count,
+        "isWorktree": is_worktree,
+        "mainWorktree": main_worktree,
+        "worktreeCount": worktree_count,
     }

@@ -495,6 +495,34 @@ function renderGitRepos(repos) {
         }
     }
 
+    // Populate Git Worktree repository select dropdown
+    const worktreeSelect = document.getElementById('gitWorktreeRepoSelect');
+    if (worktreeSelect && Array.isArray(repos)) {
+        const prevVal = worktreeSelect.value;
+        worktreeSelect.innerHTML = '<option value="">-- Select Repo --</option>';
+        repos.forEach((repo) => {
+            if (repo && repo.path && repo.name) {
+                const opt = document.createElement('option');
+                opt.value = repo.path;
+                opt.textContent = repo.name;
+                worktreeSelect.appendChild(opt);
+            }
+        });
+        if (prevVal && repos.some(r => r.path === prevVal)) {
+            worktreeSelect.value = prevVal;
+        } else if (repos.length > 0 && !worktreeSelect.value) {
+            const workspaceRepo = repos.find(r => r.name.toLowerCase() === 'workspace' || r.name.toLowerCase() === 'root');
+            if (workspaceRepo) {
+                worktreeSelect.value = workspaceRepo.path;
+            } else if (repos[0]) {
+                worktreeSelect.value = repos[0].path;
+            }
+        }
+        if (worktreeSelect.value) {
+            setTimeout(() => { if (typeof loadGitWorktrees === 'function') loadGitWorktrees(worktreeSelect.value); }, 100);
+        }
+    }
+
     if (!Array.isArray(repos) || repos.length === 0) {
         if (listApps) {
             listApps.innerHTML = `
@@ -548,6 +576,15 @@ function renderGitRepos(repos) {
                 stashBadge = `<span class="ui-badge" data-variant="secondary" style="background: rgba(138, 180, 255, 0.15); color: #8ab4ff; border: 1px solid rgba(138, 180, 255, 0.3); font-size: 10px; cursor: pointer;" title="View ${stashCount} saved stash(es)" onclick="event.stopPropagation(); openStashModal(decodeURIComponent('${pathEnc}'))">📦 ${stashCount}</span>`;
             }
 
+            const isWorktree = !!r.isWorktree;
+            const wtCount = Number(r.worktreeCount || 1);
+            let worktreeBadge = '';
+            if (isWorktree) {
+                worktreeBadge = `<span class="ui-badge" data-variant="info" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 10px;" title="Linked Git worktree">🌿 worktree</span>`;
+            } else if (wtCount > 1) {
+                worktreeBadge = `<span class="ui-badge" data-variant="info" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 10px; cursor: pointer;" title="View ${wtCount} linked worktrees" onclick="event.stopPropagation(); openWorktreeModal(decodeURIComponent('${pathEnc}'))">🌿 ${wtCount} worktrees</span>`;
+            }
+
             // Branch count from cache, fallback to placeholder
             const repoBranchPayload = _gitBranchStatusCache.get(rawPath);
             const branchCount = repoBranchPayload
@@ -595,6 +632,7 @@ function renderGitRepos(repos) {
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
                         ${actionQuickBtn}
+                        ${worktreeBadge}
                         ${stashBadge}
                         ${statusBadge || '<span class="ui-badge" data-variant="neutral">stable</span>'}
                     </div>
@@ -3490,10 +3528,11 @@ async function generateAiCommitMessage(isRegenerate = false) {
     setAiCommitStatus(isRegenerate ? 'Regenerating…' : 'Generating…');
 
     try {
+        const customPrompt = localStorage.getItem('devgit_ai_prompt_template') || '';
         const res = await fetch(apiUrl('/api/git/ai/commit-message'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ repoPath, staged, unstaged, selectedFiles }),
+            body: JSON.stringify({ repoPath, staged, unstaged, selectedFiles, customPrompt }),
         });
         const data = await res.json();
         if (!data.success) {
@@ -3897,6 +3936,170 @@ window.dropGitStash = async (event, repoPath, ref) => {
     }
 };
 
+window.loadGitWorktrees = async (repoPath) => {
+    const list = document.getElementById('gitWorktreeList');
+    const createBtn = document.getElementById('gitWorktreeCreateBtn');
+    if (!list) return;
+
+    if (!repoPath) {
+        list.innerHTML = '<div style="color: #718096; padding: 8px; text-align: center;">Select a repository above to view worktrees.</div>';
+        if (createBtn) createBtn.disabled = true;
+        return;
+    }
+
+    if (createBtn) createBtn.disabled = false;
+    list.innerHTML = '<div style="color: #718096; padding: 8px; text-align: center;">Loading worktrees…</div>';
+
+    try {
+        const res = await fetch(apiUrl(`/api/git/worktrees?repoPath=${encodeURIComponent(repoPath)}`));
+        const data = await res.json();
+        if (!data.success) {
+            list.innerHTML = `<div style="color: #ef4444; padding: 8px; text-align: center;">Error: ${escapeHtml(data.error)}</div>`;
+            return;
+        }
+
+        if (!Array.isArray(data.worktrees) || data.worktrees.length === 0) {
+            list.innerHTML = '<div style="color: #718096; padding: 8px; text-align: center;">No worktrees found for this repository.</div>';
+            return;
+        }
+
+        list.innerHTML = data.worktrees.map(wt => {
+            const isMain = !!wt.isMain;
+            const branch = escapeHtml(wt.branch || '(detached)');
+            const pathName = escapeHtml(wt.path);
+            const headShort = escapeHtml((wt.head || '').substring(0, 7));
+            const badge = isMain
+                ? '<span class="ui-badge" data-variant="primary" style="font-size: 10px;">main worktree</span>'
+                : '<span class="ui-badge" data-variant="info" style="font-size: 10px;">linked</span>';
+            const removeBtn = !isMain
+                ? `<button class="ui-button" data-variant="danger" data-size="xs" style="padding: 2px 8px; font-size: 11px; height: 26px;" onclick="removeGitWorktree(decodeURIComponent('${encodeURIComponent(repoPath)}'), decodeURIComponent('${encodeURIComponent(wt.path)}'))">Remove</button>`
+                : '';
+
+            return `
+                <div style="display:flex; justify-content:space-between; align-items:center; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.02); border-radius: 6px; padding: 10px; gap: 10px;">
+                    <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:0;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-family:'JetBrains Mono',monospace; color:#8ab4ff; font-weight:600; font-size:12px;">⌥ ${branch}</span>
+                            ${badge}
+                            <span style="font-family:monospace; font-size: 10.5px; color: #64748b;">${headShort}</span>
+                        </div>
+                        <span style="color:#94a3b8; font-size:11px; word-break:break-all; font-family:monospace;">${pathName}</span>
+                    </div>
+                    <div style="display:flex; gap:6px; align-items: center;">
+                        ${removeBtn}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        list.innerHTML = `<div style="color: #ef4444; padding: 8px; text-align: center;">Error: ${escapeHtml(err.message)}</div>`;
+    }
+};
+
+window.createGitWorktree = async () => {
+    const repoSelect = document.getElementById('gitWorktreeRepoSelect');
+    const pathInput = document.getElementById('gitWorktreePathInput');
+    const branchInput = document.getElementById('gitWorktreeBranchInput');
+    const newBranchCheck = document.getElementById('gitWorktreeNewBranchCheck');
+    const repoPath = repoSelect ? repoSelect.value : '';
+    const worktreePath = pathInput ? pathInput.value.trim() : '';
+    const branch = branchInput ? branchInput.value.trim() : '';
+    const newBranch = newBranchCheck ? newBranchCheck.checked : false;
+
+    if (!repoPath) {
+        showGitflowToast('Error', 'Please select a repository');
+        return;
+    }
+    if (!worktreePath) {
+        showGitflowToast('Error', 'Please enter a worktree path');
+        return;
+    }
+
+    try {
+        const res = await fetch(apiUrl('/api/git/worktree/add'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repoPath, worktreePath, branch, newBranch })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            showGitflowToast('Failed to Add Worktree', data.error || 'Unknown error');
+            return;
+        }
+        showGitflowToast('Worktree Added', data.message);
+        if (pathInput) pathInput.value = '';
+        if (branchInput) branchInput.value = '';
+        loadGitWorktrees(repoPath);
+        loadGitRepos(true);
+    } catch (err) {
+        showGitflowToast('Error', err.message);
+    }
+};
+
+window.removeGitWorktree = async (repoPath, worktreePath, force = false) => {
+    if (!confirm(`Are you sure you want to remove worktree at "${worktreePath}"?`)) return;
+    try {
+        const res = await fetch(apiUrl('/api/git/worktree/remove'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repoPath, worktreePath, force })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            showGitflowToast('Failed to Remove Worktree', data.error || 'Unknown error');
+            return;
+        }
+        showGitflowToast('Worktree Removed', data.message);
+        loadGitWorktrees(repoPath);
+        loadGitRepos(true);
+    } catch (err) {
+        showGitflowToast('Error', err.message);
+    }
+};
+
+window.pruneGitWorktrees = async () => {
+    const repoSelect = document.getElementById('gitWorktreeRepoSelect');
+    const repoPath = repoSelect ? repoSelect.value : '';
+    if (!repoPath) return;
+
+    try {
+        const res = await fetch(apiUrl('/api/git/worktree/prune'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repoPath })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            showGitflowToast('Prune Failed', data.error || 'Unknown error');
+            return;
+        }
+        showGitflowToast('Pruned', data.message);
+        loadGitWorktrees(repoPath);
+        loadGitRepos(true);
+    } catch (err) {
+        showGitflowToast('Error', err.message);
+    }
+};
+
+window.openWorktreeModal = (repoPath) => {
+    const modal = document.getElementById('gitWorktreeModal');
+    const repoSelect = document.getElementById('gitWorktreeRepoSelect');
+    if (modal) {
+        modal.classList.remove('hidden');
+        if (repoPath && repoSelect) {
+            repoSelect.value = repoPath;
+        }
+        if (repoSelect && repoSelect.value) {
+            loadGitWorktrees(repoSelect.value);
+        }
+    }
+};
+
+window.closeWorktreeModal = () => {
+    const modal = document.getElementById('gitWorktreeModal');
+    if (modal) modal.classList.add('hidden');
+};
+
 window.openConflictModal = async (repoPath) => {
     const modal = document.getElementById('gitConflictModal');
     const list = document.getElementById('gitConflictFileList');
@@ -4139,6 +4342,9 @@ function initKeyboardShortcuts() {
     const stashBtn = document.getElementById('gitStashManagerBtn');
     const stashClose = document.getElementById('gitStashModalClose');
     const stashOk = document.getElementById('gitStashModalOk');
+    const worktreeBtn = document.getElementById('gitWorktreeManagerBtn');
+    const worktreeClose = document.getElementById('gitWorktreeModalClose');
+    const worktreeOk = document.getElementById('gitWorktreeModalOk');
 
     if (shortcutsBtn) shortcutsBtn.addEventListener('click', openShortcutsModal);
     if (shortcutsClose) shortcutsClose.addEventListener('click', closeShortcutsModal);
@@ -4147,6 +4353,9 @@ function initKeyboardShortcuts() {
     if (stashBtn) stashBtn.addEventListener('click', () => openStashModal());
     if (stashClose) stashClose.addEventListener('click', closeStashModal);
     if (stashOk) stashOk.addEventListener('click', closeStashModal);
+    if (worktreeBtn) worktreeBtn.addEventListener('click', () => openWorktreeModal());
+    if (worktreeClose) worktreeClose.addEventListener('click', closeWorktreeModal);
+    if (worktreeOk) worktreeOk.addEventListener('click', closeWorktreeModal);
 
     window.addEventListener('keydown', (e) => {
         const active = document.activeElement;
@@ -4179,6 +4388,14 @@ function initKeyboardShortcuts() {
             if (stashModal && !stashModal.classList.contains('hidden')) {
                 e.preventDefault();
                 closeStashModal();
+                return;
+            }
+
+            // Close worktree modal if open
+            const worktreeModal = document.getElementById('gitWorktreeModal');
+            if (worktreeModal && !worktreeModal.classList.contains('hidden')) {
+                e.preventDefault();
+                closeWorktreeModal();
                 return;
             }
 
@@ -4239,6 +4456,12 @@ function initKeyboardShortcuts() {
             if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
                 openStashModal();
+                return;
+            }
+
+            if (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                openWorktreeModal();
                 return;
             }
 

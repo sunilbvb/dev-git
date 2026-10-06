@@ -14,10 +14,10 @@ logger = logging.getLogger("devgit.terminal")
 ALLOWED_SUBCOMMANDS = {
     "status", "log", "diff", "branch", "checkout", "commit", "stash", 
     "pull", "fetch", "push", "tag", "add", "reset", "restore", 
-    "merge", "show", "rev-parse", "shortlog"
+    "merge", "show", "rev-parse", "shortlog", "worktree"
 }
 
-DANGEROUS_FLAG_SUBSTRINGS = {"-c", "exec", "--config", "--exec-path", "--upload-pack", "--receive-pack", "--config-env", "-C", "--git-dir", "--work-tree"}
+DANGEROUS_FLAG_SUBSTRINGS = {"-c", "exec", "--config", "--exec-path", "--upload-pack", "--receive-pack", "--config-env", "-C", "--git-dir", "--work-tree", "--output"}
 
 
 def validate_git_terminal_args(args: List[str]) -> Tuple[bool, str]:

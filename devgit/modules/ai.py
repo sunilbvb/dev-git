@@ -79,11 +79,13 @@ def handle_git_ai_commit_message_async(data: dict) -> Dict[str, Any]:
     if not diff:
         return {"success": False, "error": "No staged or unstaged changes found"}
 
+    custom_prompt = str(data.get("customPrompt") or data.get("systemPrompt") or "").strip()
+    system_prompt = custom_prompt if custom_prompt else "You are a professional software engineer. Write a concise, clear conventional commit message for the given diff."
+
     job_id = create_job("ai_commit_msg", f"Generate AI commit message for {target.name}")
 
     def _generate():
         try:
-            system_prompt = "You are a professional software engineer. Write a concise, clear conventional commit message for the given diff."
             msg = ollama_generate(system_prompt, f"Git diff:\n{diff[:AI_MAX_DIFF_CHARS]}")
             append_job_log(job_id, "output", msg)
             complete_job(job_id, status="success")

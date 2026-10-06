@@ -56,6 +56,7 @@
                             </label>
                             <button class="ui-button" data-variant="secondary" data-size="sm" id="gitRefreshReposBtn" type="button" title="Refresh all repositories (Shortcut: R)">🔄 Refresh (R)</button>
                             <button class="ui-button" data-variant="primary" data-size="sm" id="gitFetchAllBtn" type="button" title="Git Fetch All (Shortcut: F)">Git Fetch All (F)</button>
+                            <button class="ui-button" data-variant="outline" data-size="sm" id="gitAboutDocsBtn" type="button" title="About, Documentation & Project Info" onclick="document.getElementById('devgitAboutPanel').classList.remove('hidden')" style="display: flex; align-items: center; gap: 5px;">📖 About</button>
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap;">
@@ -67,6 +68,9 @@
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <button class="ui-button" data-variant="outline" data-size="xs" id="gitStashManagerBtn" type="button" title="Inspect & Manage Git Stashes (Shortcut: S)" style="display: flex; align-items: center; gap: 5px;">
                                 📦 Stashes <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(S)</span>
+                            </button>
+                            <button class="ui-button" data-variant="outline" data-size="xs" id="gitWorktreeManagerBtn" type="button" title="Inspect & Manage Git Worktrees (Shortcut: T)" style="display: flex; align-items: center; gap: 5px;">
+                                🌿 Worktrees <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(T)</span>
                             </button>
                             <button class="ui-button" data-variant="outline" data-size="xs" id="gitCopyStandupBtn" type="button" title="Copy Markdown summary of dirty repos and current branches to clipboard (Shortcut: C)" style="display: flex; align-items: center; gap: 5px;">
                                 📋 Copy Standup Summary <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(C)</span>
@@ -799,6 +803,10 @@ git push origin v1.1.4</pre>
                             <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">S</kbd>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <span style="color: #cbd5e1;">Inspect & Manage Git Worktrees</span>
+                            <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">T</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
                             <span style="color: #cbd5e1;">Switch Workspace</span>
                             <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">W</kbd>
                         </div>
@@ -845,6 +853,614 @@ git push origin v1.1.4</pre>
                     </div>
                 </div>
             </div>
+
+            <!-- Modal: Git Worktrees Quick-Manager -->
+            <div class="ui-modal-backdrop hidden" id="gitWorktreeModal" style="z-index: 99999;">
+                <div class="ui-modal-card" style="max-width: 650px;">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">🌿 Git Worktree Manager</h3>
+                        <button class="ui-modal-close" type="button" id="gitWorktreeModalClose" aria-label="Close">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Select Repository</label>
+                                <select id="gitWorktreeRepoSelect" class="ui-select" style="width: 100%; font-size: 13px;"></select>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 12px; font-weight: 600; color: #cbd5e1;">+ Add New Worktree</div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                    <input type="text" id="gitWorktreePathInput" placeholder="Worktree directory path (e.g. ../feat-worktree)" class="ui-input" style="font-size: 12px; height: 34px;" />
+                                    <input type="text" id="gitWorktreeBranchInput" placeholder="Branch name (e.g. feat/login)" class="ui-input" style="font-size: 12px; height: 34px;" />
+                                </div>
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;">
+                                    <label style="font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+                                        <input type="checkbox" id="gitWorktreeNewBranchCheck" checked style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
+                                        Create as new branch (-b)
+                                    </label>
+                                    <button class="ui-button" data-variant="primary" data-size="sm" id="gitWorktreeCreateBtn" type="button" onclick="createGitWorktree()" style="height: 32px; white-space: nowrap;">+ Add Worktree</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Active Worktrees</label>
+                                <button class="ui-button" data-variant="outline" data-size="xs" type="button" onclick="pruneGitWorktrees()" style="font-size: 11px; padding: 2px 8px;">🧹 Prune Stale</button>
+                            </div>
+                            <div id="gitWorktreeList" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding: 2px;"></div>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitWorktreeModalOk">Close</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- ═══════ DEVGIT ABOUT / DOCUMENTATION PANEL ═══════ -->
+            <div id="devgitAboutPanel" class="hidden" style="position: fixed; inset: 0; z-index: 999998; background: rgba(4,9,20,0.85); backdrop-filter: blur(4px); display: flex; align-items: flex-start; justify-content: flex-end;">
+                <div style="width: min(820px, 100vw); height: 100vh; background: #070d1b; border-left: 1px solid #1c2d4a; display: flex; flex-direction: column; overflow: hidden; animation: slideInRight 0.25s ease;">
+                    <!-- Panel Header -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid #1c2d4a; background: linear-gradient(135deg, #0a1628 0%, #0d1f3c 100%); flex-shrink: 0;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 28px;">📖</span>
+                            <div>
+                                <div style="font-size: 18px; font-weight: 800; color: #f1f5f9; letter-spacing: 0.3px;">DevGit</div>
+                                <div style="font-size: 11px; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">Documentation &amp; Project Info</div>
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('devgitAboutPanel').classList.add('hidden')" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #94a3b8; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;" title="Close">&times;</button>
+                    </div>
+
+                    <!-- Tab Nav -->
+                    <div style="display: flex; gap: 2px; padding: 10px 16px; border-bottom: 1px solid #1c2d4a; background: #070d1b; overflow-x: auto; flex-shrink: 0;" id="aboutTabNav">
+                        <button onclick="switchAboutTab('changelog')"  class="about-tab-btn about-tab-active" data-tab="changelog"  style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: rgba(59,130,246,0.2); color: #93c5fd;">📋 Changelog</button>
+                        <button onclick="switchAboutTab('readme')"     class="about-tab-btn" data-tab="readme"     style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">📄 Readme</button>
+                        <button onclick="switchAboutTab('installing')" class="about-tab-btn" data-tab="installing" style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">⚙️ Installing</button>
+                        <button onclick="switchAboutTab('versions')"   class="about-tab-btn" data-tab="versions"   style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">🏷️ Versions</button>
+                        <button onclick="switchAboutTab('platforms')"  class="about-tab-btn" data-tab="platforms"  style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">🖥️ Platforms</button>
+                        <button onclick="switchAboutTab('features')"   class="about-tab-btn" data-tab="features"   style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">✨ Features</button>
+                        <button onclick="switchAboutTab('deps')"       class="about-tab-btn" data-tab="deps"       style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">📦 Dependencies</button>
+                        <button onclick="switchAboutTab('docs')"       class="about-tab-btn" data-tab="docs"       style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">📚 Docs</button>
+                        <button onclick="switchAboutTab('usecases')"   class="about-tab-btn" data-tab="usecases"   style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">🎯 Use Cases</button>
+                        <button onclick="switchAboutTab('contributing')" class="about-tab-btn" data-tab="contributing" style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">🤝 Contributing</button>
+                        <button onclick="switchAboutTab('requirements')" class="about-tab-btn" data-tab="requirements" style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">📋 Requirements</button>
+                        <button onclick="switchAboutTab('license')"    class="about-tab-btn" data-tab="license"    style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">📜 License</button>
+                        <button onclick="switchAboutTab('owner')"      class="about-tab-btn" data-tab="owner"      style="white-space:nowrap; padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; border: none; cursor: pointer; background: transparent; color: #64748b;">👤 Owner</button>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div style="flex: 1; overflow-y: auto; padding: 24px; font-size: 13px; color: #cbd5e1; line-height: 1.7;" id="aboutTabContent">
+
+                        <!-- ── CHANGELOG ── -->
+                        <div class="about-tab-pane" id="about-tab-changelog">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">📋 Changelog</h2>
+                            <div style="display: flex; flex-direction: column; gap: 16px;">
+                                <div style="border-left: 3px solid #3b82f6; padding: 12px 16px; background: rgba(59,130,246,0.06); border-radius: 0 8px 8px 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <span style="background: #3b82f6; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;">LATEST</span>
+                                        <span style="font-weight: 700; color: #93c5fd;">v1.3.1</span>
+                                        <span style="color: #475569; font-size: 11px;">— Current Release</span>
+                                    </div>
+                                    <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px;">
+                                        <li>✨ Git Worktree Manager — inspect, create, and prune worktrees via hotkey <code style="color: #8ab4ff;">T</code></li>
+                                        <li>✨ Git Stash Quick-Manager — stash / pop / drop via hotkey <code style="color: #8ab4ff;">S</code></li>
+                                        <li>✨ AI-powered commit message generation via local Ollama</li>
+                                        <li>🐛 Fixed branch popover z-index layering issues</li>
+                                        <li>🐛 Resolved edge case in Melos multi-repo branch naming</li>
+                                        <li>⚡ Improved real-time branch search performance</li>
+                                    </ul>
+                                </div>
+                                <div style="border-left: 3px solid #475569; padding: 12px 16px; background: rgba(71,85,105,0.06); border-radius: 0 8px 8px 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <span style="font-weight: 700; color: #94a3b8;">v1.2.0</span>
+                                        <span style="color: #475569; font-size: 11px;">— Previous Release</span>
+                                    </div>
+                                    <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px;">
+                                        <li>✨ Merge Conflict Indicator with Conflict Resolution Assistant</li>
+                                        <li>✨ Custom AI Prompt in Settings (Ollama system prompt)</li>
+                                        <li>✨ Real-Time Branch Filter inside branch popovers</li>
+                                        <li>🐛 Fixed relative timestamp display for commits older than 1 week</li>
+                                    </ul>
+                                </div>
+                                <div style="border-left: 3px solid #475569; padding: 12px 16px; background: rgba(71,85,105,0.06); border-radius: 0 8px 8px 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <span style="font-weight: 700; color: #94a3b8;">v1.1.0</span>
+                                        <span style="color: #475569; font-size: 11px;"></span>
+                                    </div>
+                                    <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px;">
+                                        <li>✨ Gitflow Developer Console with branch start / tag release workflow</li>
+                                        <li>✨ Interactive Git Terminal Console embedded in the dashboard</li>
+                                        <li>✨ Copy Standup Summary to clipboard (hotkey <code style="color: #8ab4ff;">C</code>)</li>
+                                        <li>✨ Keyboard shortcuts panel (hotkey <code style="color: #8ab4ff;">?</code>)</li>
+                                    </ul>
+                                </div>
+                                <div style="border-left: 3px solid #475569; padding: 12px 16px; background: rgba(71,85,105,0.06); border-radius: 0 8px 8px 0;">
+                                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                        <span style="font-weight: 700; color: #94a3b8;">v1.0.0</span>
+                                        <span style="color: #475569; font-size: 11px;">— Initial Release</span>
+                                    </div>
+                                    <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px;">
+                                        <li>🚀 Initial launch of DevGit multi-repo Git dashboard</li>
+                                        <li>✨ Automatic repository discovery (monorepo &amp; single repo)</li>
+                                        <li>✨ Multi-repo status grid with dirty / ahead-behind tracking</li>
+                                        <li>✨ Batch Fetch All, workspace switching, and dark/light theming</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── README ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-readme">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">📄 Readme</h2>
+                            <div style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); border-radius: 10px; padding: 20px;">
+                                <h3 style="font-size: 20px; font-weight: 800; color: #93c5fd; margin: 0 0 10px;">🔄 DevGit — Standalone Multi-Repo Git Dashboard</h3>
+                                <p style="margin: 0 0 14px; color: #94a3b8;">A lightweight, zero-dependency, local web-based dashboard designed for managing Git repositories across monorepos, multi-repo projects (<code>apps/</code>, <code>packages/</code>, <code>tools/</code>), and standalone workspaces.</p>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+                                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Quick Start</div>
+                                        <code style="font-size: 12px; color: #86efac;">./start.sh --open</code>
+                                        <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Opens at http://localhost:8086</div>
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px;">
+                                        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Custom Workspace</div>
+                                        <code style="font-size: 12px; color: #86efac;">./start.sh --workspace /path/to/monorepo</code>
+                                    </div>
+                                </div>
+                                <p style="margin: 14px 0 0; color: #64748b; font-size: 12px;">For full documentation see the project <a href="https://github.com/sunilbvb/dev-git" target="_blank" style="color: #3b82f6;">GitHub repository</a> and the <a href="docs/HOW_TO_USE.md" style="color: #3b82f6;">User Guide &amp; Walkthrough</a>.</p>
+                            </div>
+                        </div>
+
+                        <!-- ── INSTALLING ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-installing">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">⚙️ Installing</h2>
+                            <div style="display: flex; flex-direction: column; gap: 16px;">
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 16px;">
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px;">Method 1 — Run directly (no install needed)</div>
+                                    <pre style="margin: 0; background: #020812; border: 1px solid #1c2d4a; border-radius: 6px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #e2e8f0; overflow-x: auto;">git clone https://github.com/sunilbvb/dev-git.git
+cd dev-git
+./start.sh --open</pre>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 16px;">
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px;">Method 2 — Install as a CLI tool</div>
+                                    <pre style="margin: 0; background: #020812; border: 1px solid #1c2d4a; border-radius: 6px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #e2e8f0; overflow-x: auto;">pip install .
+devgit --open</pre>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 16px;">
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px;">Method 3 — Target a specific workspace</div>
+                                    <pre style="margin: 0; background: #020812; border: 1px solid #1c2d4a; border-radius: 6px; padding: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #e2e8f0; overflow-x: auto;">./start.sh -w /path/to/my-monorepo -p 8086 --open</pre>
+                                </div>
+                                <div style="background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; padding: 14px; font-size: 12px; color: #fcd34d;">
+                                    💡 <strong>No npm, no Node.js, no pip packages required</strong> for the standard run method. The backend uses only Python standard library.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── VERSIONS ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-versions">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">🏷️ Versions</h2>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #1c2d4a;">
+                                        <th style="text-align: left; padding: 8px 12px; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px;">Version</th>
+                                        <th style="text-align: left; padding: 8px 12px; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px;">Date</th>
+                                        <th style="text-align: left; padding: 8px 12px; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px;">Status</th>
+                                        <th style="text-align: left; padding: 8px 12px; color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 10px;">Highlights</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); background: rgba(59,130,246,0.05);">
+                                        <td style="padding: 10px 12px; color: #93c5fd; font-weight: 700;">v1.3.1</td>
+                                        <td style="padding: 10px 12px; color: #94a3b8;">2026-09</td>
+                                        <td style="padding: 10px 12px;"><span style="background: #16a34a; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 700;">Stable</span></td>
+                                        <td style="padding: 10px 12px; color: #cbd5e1;">Worktrees, Stash Manager, AI commits</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 10px 12px; color: #94a3b8; font-weight: 700;">v1.2.0</td>
+                                        <td style="padding: 10px 12px; color: #94a3b8;">2026-08</td>
+                                        <td style="padding: 10px 12px;"><span style="background: #475569; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 700;">Archived</span></td>
+                                        <td style="padding: 10px 12px; color: #64748b;">Conflict Resolution, Custom AI Prompt</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                                        <td style="padding: 10px 12px; color: #94a3b8; font-weight: 700;">v1.1.0</td>
+                                        <td style="padding: 10px 12px; color: #94a3b8;">2026-07</td>
+                                        <td style="padding: 10px 12px;"><span style="background: #475569; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 700;">Archived</span></td>
+                                        <td style="padding: 10px 12px; color: #64748b;">Gitflow Console, Embedded Terminal</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 12px; color: #94a3b8; font-weight: 700;">v1.0.0</td>
+                                        <td style="padding: 10px 12px; color: #94a3b8;">2026-06</td>
+                                        <td style="padding: 10px 12px;"><span style="background: #475569; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 700;">Archived</span></td>
+                                        <td style="padding: 10px 12px; color: #64748b;">Initial public release</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ── PLATFORMS ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-platforms">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">🖥️ Supported Platforms</h2>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 16px; text-align: center;">
+                                    <div style="font-size: 32px; margin-bottom: 8px;">🐧</div>
+                                    <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Linux</div>
+                                    <div style="font-size: 11px; color: #64748b;">Ubuntu, Debian, Fedora, Arch &amp; derivatives</div>
+                                    <div style="margin-top: 8px;"><span style="background: #16a34a; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px;">✅ Full Support</span></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 16px; text-align: center;">
+                                    <div style="font-size: 32px; margin-bottom: 8px;">🍎</div>
+                                    <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">macOS</div>
+                                    <div style="font-size: 11px; color: #64748b;">macOS 12+ (Intel &amp; Apple Silicon)</div>
+                                    <div style="margin-top: 8px;"><span style="background: #16a34a; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px;">✅ Full Support</span></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 16px; text-align: center;">
+                                    <div style="font-size: 32px; margin-bottom: 8px;">🪟</div>
+                                    <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Windows</div>
+                                    <div style="font-size: 11px; color: #64748b;">Windows 10/11 via WSL2 or Git Bash</div>
+                                    <div style="margin-top: 8px;"><span style="background: #ca8a04; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px;">⚠️ WSL2 Recommended</span></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 16px; text-align: center;">
+                                    <div style="font-size: 32px; margin-bottom: 8px;">☁️</div>
+                                    <div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Cloud / CI</div>
+                                    <div style="font-size: 11px; color: #64748b;">GitHub Codespaces, GitPod, SSH tunnels</div>
+                                    <div style="margin-top: 8px;"><span style="background: #2563eb; color: #fff; font-size: 10px; padding: 2px 7px; border-radius: 10px;">🧪 Experimental</span></div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px;">
+                                <div style="font-weight: 700; color: #93c5fd; margin-bottom: 8px;">Browser Compatibility</div>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                    <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #86efac; padding: 4px 10px; border-radius: 6px; font-size: 12px;">✅ Chrome 100+</span>
+                                    <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #86efac; padding: 4px 10px; border-radius: 6px; font-size: 12px;">✅ Firefox 100+</span>
+                                    <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #86efac; padding: 4px 10px; border-radius: 6px; font-size: 12px;">✅ Safari 15+</span>
+                                    <span style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); color: #86efac; padding: 4px 10px; border-radius: 6px; font-size: 12px;">✅ Edge 100+</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── FEATURES ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-features">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">✨ Features</h2>
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
+                                <div style="display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <span style="font-size: 18px;">🔍</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">Automatic Repository Discovery</div><div style="font-size: 12px; color: #64748b;">Scans monorepos, multi-repo structures (apps/, packages/, tools/, services/, libs/), and custom layouts via .devgit.json.</div></div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <span style="font-size: 18px;">📊</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">Multi-Repo Status Grid</div><div style="font-size: 12px; color: #64748b;">Visual grid overview of dirty working trees, untracked changes, ahead/behind tracking against remote branches.</div></div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <span style="font-size: 18px;">⚡</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">Batch Git Operations</div><div style="font-size: 12px; color: #64748b;">One-click Fetch All across all repos. Sync, branch creation, fast-forward pulls, pushes, and stash management.</div></div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <span style="font-size: 18px;">🤖</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">AI-Powered Commit Messages</div><div style="font-size: 12px; color: #64748b;">Generate semantic Conventional Commit messages using local Ollama models (llama3, deepseek-r1, mistral). Fully private.</div></div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <span style="font-size: 18px;">🌿</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">Gitflow Branch &amp; Release Management</div><div style="font-size: 12px; color: #64748b;">Visual Gitflow branch creation, finish/merge, checkout, deletion. Tag creation, SemVer bumping, and GitHub release summaries.</div></div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <span style="font-size: 18px;">💻</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">Embedded Interactive Terminal</div><div style="font-size: 12px; color: #64748b;">Run Git commands directly within specific repositories from the web UI. No IDE or terminal switch required.</div></div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <span style="font-size: 18px;">📦</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">Stash &amp; Worktree Managers</div><div style="font-size: 12px; color: #64748b;">Inspect, create, apply, and prune stashes and worktrees through a dedicated UI modal with keyboard shortcuts.</div></div>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 12px;">
+                                    <span style="font-size: 18px;">⌨️</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 3px;">Full Keyboard Shortcut System</div><div style="font-size: 12px; color: #64748b;">Ctrl+K search, R refresh, F fetch, S stash, T worktrees, C copy standup, W switch workspace, Esc close, ? help.</div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── DEPENDENCIES ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-deps">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">📦 Dependencies</h2>
+                            <div style="background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.15); border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 12px; color: #86efac;">
+                                🎉 <strong>Zero runtime dependencies!</strong> DevGit is built on the Python standard library and vanilla JavaScript — no npm, no pip packages, no build steps.
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div>
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px; font-size: 13px;">🐍 Backend (Python Standard Library only)</div>
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                        <thead><tr style="border-bottom: 1px solid #1c2d4a;"><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Module</th><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Purpose</th></tr></thead>
+                                        <tbody>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">http.server</code></td><td style="padding: 8px 10px; color: #94a3b8;">HTTP server and request routing</td></tr>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">subprocess</code></td><td style="padding: 8px 10px; color: #94a3b8;">Safe execution of Git CLI commands</td></tr>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">json</code></td><td style="padding: 8px 10px; color: #94a3b8;">Serialize API request/response payloads</td></tr>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">pathlib</code></td><td style="padding: 8px 10px; color: #94a3b8;">Cross-platform file system path handling</td></tr>
+                                            <tr><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">urllib</code></td><td style="padding: 8px 10px; color: #94a3b8;">Local Ollama AI API HTTP client</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px; font-size: 13px;">🌐 Frontend (CDN, optional &amp; with offline fallback)</div>
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                        <thead><tr style="border-bottom: 1px solid #1c2d4a;"><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Library</th><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Purpose</th><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Fallback</th></tr></thead>
+                                        <tbody>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">lucide-icons</code></td><td style="padding: 8px 10px; color: #94a3b8;">Lightweight SVG icon set (unpkg CDN)</td><td style="padding: 8px 10px; color: #64748b;">Emoji fallback</td></tr>
+                                            <tr><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">developer-dashboard-ui</code></td><td style="padding: 8px 10px; color: #94a3b8;">Design system CSS (jsDelivr CDN)</td><td style="padding: 8px 10px; color: #64748b;">Local /css/ui.css</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px; font-size: 13px;">🔧 Optional System Tools</div>
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                        <thead><tr style="border-bottom: 1px solid #1c2d4a;"><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Tool</th><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Purpose</th></tr></thead>
+                                        <tbody>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">git 2.20+</code></td><td style="padding: 8px 10px; color: #94a3b8;"><strong>Required</strong> — all Git operations</td></tr>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">melos</code></td><td style="padding: 8px 10px; color: #94a3b8;">Optional — Flutter/Dart multi-repo sync</td></tr>
+                                            <tr><td style="padding: 8px 10px;"><code style="color: #8ab4ff;">ollama</code></td><td style="padding: 8px 10px; color: #94a3b8;">Optional — Local AI commit message generation</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── DOCUMENTATION ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-docs">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">📚 Documentation</h2>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px; display: flex; gap: 14px; align-items: flex-start;">
+                                    <span style="font-size: 22px; flex-shrink: 0;">📖</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">README.md</div><div style="font-size: 12px; color: #64748b;">Project overview, quick start, CLI options, repository discovery strategy, configuration, and contributing guide.</div></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px; display: flex; gap: 14px; align-items: flex-start;">
+                                    <span style="font-size: 22px; flex-shrink: 0;">🗺️</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">docs/HOW_TO_USE.md</div><div style="font-size: 12px; color: #64748b;">Step-by-step practical walkthrough covering Flutter Melos, Turborepo, microservices, and full UI workflows.</div></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px; display: flex; gap: 14px; align-items: flex-start;">
+                                    <span style="font-size: 22px; flex-shrink: 0;">🌿</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">docs/GIT_WORKFLOW.md</div><div style="font-size: 12px; color: #64748b;">Detailed guide on Trunk-Based and Gitflow branching models, Conventional Commits, release tagging, and multi-repo sync.</div></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px; display: flex; gap: 14px; align-items: flex-start;">
+                                    <span style="font-size: 22px; flex-shrink: 0;">🤝</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">CONTRIBUTING.md</div><div style="font-size: 12px; color: #64748b;">Setup guide, architectural principles, branch naming conventions, coding standards, and PR lifecycle.</div></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px; display: flex; gap: 14px; align-items: flex-start;">
+                                    <span style="font-size: 22px; flex-shrink: 0;">📜</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">.github/ Templates</div><div style="font-size: 12px; color: #64748b;">Code of Conduct, Issue Templates (bug report &amp; feature request), and Pull Request checklist template.</div></div>
+                                </div>
+                                <div style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); border-radius: 8px; padding: 12px; font-size: 12px; color: #93c5fd;">
+                                    🔗 Full API documentation and endpoint reference available in <code>docs/API.md</code> (in progress — contributions welcome!).
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── USE CASES ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-usecases">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">🎯 Use Cases</h2>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; display: flex; gap: 14px;">
+                                    <span style="font-size: 24px; flex-shrink: 0;">📱</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Flutter Melos Monorepos</div><div style="font-size: 12px; color: #64748b;">Manage apps and packages in a Melos-powered Flutter workspace. DevGit understands Melos branch naming conventions and creates synchronized multi-repo branches automatically.</div></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; display: flex; gap: 14px;">
+                                    <span style="font-size: 24px; flex-shrink: 0;">🏗️</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">JavaScript Turborepo / pnpm Workspaces</div><div style="font-size: 12px; color: #64748b;">Oversee frontend apps and shared packages in a Turborepo. Track dirty states and sync branches across all packages from one dashboard.</div></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; display: flex; gap: 14px;">
+                                    <span style="font-size: 24px; flex-shrink: 0;">🔬</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Microservices Architecture</div><div style="font-size: 12px; color: #64748b;">Keep track of dozens of independent service repositories simultaneously — spot which services have uncommitted work before a release cut.</div></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; display: flex; gap: 14px;">
+                                    <span style="font-size: 24px; flex-shrink: 0;">🧑‍💻</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Solo Developer Workflow</div><div style="font-size: 12px; color: #64748b;">Replace multiple terminal tabs. Get a bird's-eye view of your personal projects, create Gitflow branches, write AI-assisted commits, and copy standup summaries.</div></div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; display: flex; gap: 14px;">
+                                    <span style="font-size: 24px; flex-shrink: 0;">🏢</span>
+                                    <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 4px;">Team Stand-Up Reporting</div><div style="font-size: 12px; color: #64748b;">Use the Copy Standup Summary feature (hotkey C) to instantly generate a Markdown report of dirty repos and active branches ready to paste into Slack or Notion.</div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── CONTRIBUTING ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-contributing">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">🤝 Contributing</h2>
+                            <div style="display: flex; flex-direction: column; gap: 14px;">
+                                <div style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); border-radius: 8px; padding: 14px; font-size: 13px;">
+                                    DevGit is open-source and <strong>welcomes all contributions</strong> — bug fixes, documentation, UI polish, workflow automation, and new features!
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px;">
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px;">Quick Contribution Steps</div>
+                                    <ol style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #94a3b8;">
+                                        <li>Fork the repository on GitHub</li>
+                                        <li>Create a descriptive feature branch: <code style="color: #8ab4ff;">git checkout -b feat/my-feature</code></li>
+                                        <li>Write conventional commits: <code style="color: #8ab4ff;">feat(scope): description</code></li>
+                                        <li>Run the test suite: <code style="color: #8ab4ff;">./scripts/run_tests.sh</code></li>
+                                        <li>Submit a Pull Request against <code style="color: #48bb78;">main</code></li>
+                                    </ol>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px;">
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px;">Branch Naming Convention</div>
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                                        <thead><tr style="border-bottom: 1px solid #1c2d4a;"><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Prefix</th><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Purpose</th><th style="text-align:left; padding: 6px 10px; color: #64748b; font-size: 10px; text-transform: uppercase;">Example</th></tr></thead>
+                                        <tbody>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 7px 10px;"><code style="color: #d69e2e;">feat/</code></td><td style="padding: 7px 10px; color: #94a3b8;">New feature</td><td style="padding: 7px 10px; color: #64748b;">feat/git-stash-viewer</td></tr>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 7px 10px;"><code style="color: #e53e3e;">fix/</code></td><td style="padding: 7px 10px; color: #94a3b8;">Bug fix</td><td style="padding: 7px 10px; color: #64748b;">fix/windows-path-separator</td></tr>
+                                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);"><td style="padding: 7px 10px;"><code style="color: #38b2ac;">docs/</code></td><td style="padding: 7px 10px; color: #94a3b8;">Documentation</td><td style="padding: 7px 10px; color: #64748b;">docs/contributing-guide</td></tr>
+                                            <tr><td style="padding: 7px 10px;"><code style="color: #b7791f;">chore/</code></td><td style="padding: 7px 10px; color: #94a3b8;">Tooling / housekeeping</td><td style="padding: 7px 10px; color: #64748b;">chore/update-readme</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px; font-size: 12px;">
+                                    <strong style="color: #f1f5f9;">Core Philosophy:</strong>
+                                    <ul style="margin: 8px 0 0; padding-left: 18px; color: #64748b; display: flex; flex-direction: column; gap: 4px;">
+                                        <li>Zero external Python pip dependencies — standard library only</li>
+                                        <li>Zero frontend build steps — vanilla ES6+ JS and CSS</li>
+                                        <li>Local &amp; privacy first — no telemetry, no remote tracking</li>
+                                    </ul>
+                                </div>
+                                <div style="font-size: 12px; color: #64748b;">Full contributing guide: <code style="color: #8ab4ff;">CONTRIBUTING.md</code> | Code of Conduct: <code style="color: #8ab4ff;">.github/CODE_OF_CONDUCT.md</code></div>
+                            </div>
+                        </div>
+
+                        <!-- ── REQUIREMENTS ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-requirements">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">📋 Requirements</h2>
+                            <div style="display: flex; flex-direction: column; gap: 14px;">
+                                <div>
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px;">🔴 Required</div>
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px;">
+                                            <span style="font-size: 20px; flex-shrink: 0;">🐍</span>
+                                            <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 2px;">Python 3.9+</div><div style="font-size: 11px; color: #64748b;">Backend server. No pip install required for standard run.</div></div>
+                                            <span style="margin-left: auto; background: #dc2626; color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 700;">Required</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px;">
+                                            <span style="font-size: 20px; flex-shrink: 0;">🔧</span>
+                                            <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 2px;">Git 2.20+</div><div style="font-size: 11px; color: #64748b;">Must be installed and available on system PATH.</div></div>
+                                            <span style="margin-left: auto; background: #dc2626; color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 700;">Required</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px;">🟡 Optional</div>
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px;">
+                                            <span style="font-size: 20px; flex-shrink: 0;">🤖</span>
+                                            <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 2px;">Ollama (local AI)</div><div style="font-size: 11px; color: #64748b;">For AI commit message generation. Install models like llama3, deepseek-r1, mistral.</div></div>
+                                            <span style="margin-left: auto; background: #ca8a04; color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 700;">Optional</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px;">
+                                            <span style="font-size: 20px; flex-shrink: 0;">🌿</span>
+                                            <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 2px;">Melos (Flutter)</div><div style="font-size: 11px; color: #64748b;">Required only if using Flutter/Dart Melos Git Workflow multi-repo branching.</div></div>
+                                            <span style="margin-left: auto; background: #ca8a04; color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 700;">Optional</span>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 12px;">
+                                            <span style="font-size: 20px; flex-shrink: 0;">📦</span>
+                                            <div><div style="font-weight: 700; color: #f1f5f9; margin-bottom: 2px;">pip (setuptools)</div><div style="font-size: 11px; color: #64748b;">Required only if installing DevGit as a CLI tool via <code>pip install .</code></div></div>
+                                            <span style="margin-left: auto; background: #ca8a04; color: #fff; font-size: 10px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 700;">Optional</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ── LICENSE ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-license">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">📜 License</h2>
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 24px; text-align: center; margin-bottom: 16px;">
+                                <div style="font-size: 40px; margin-bottom: 10px;">⚖️</div>
+                                <div style="font-size: 22px; font-weight: 800; color: #93c5fd; margin-bottom: 6px;">MIT License</div>
+                                <div style="font-size: 12px; color: #64748b;">Free and open-source software</div>
+                            </div>
+                            <div style="background: #020812; border: 1px solid #1c2d4a; border-radius: 8px; padding: 18px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: #94a3b8; line-height: 1.7; white-space: pre-wrap;">MIT License
+
+Copyright (c) 2026 DevGit Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</div>
+                            <div style="margin-top: 14px; font-size: 12px; color: #64748b; text-align: center;">This license allows you to freely use, modify, distribute, and sublicense the software for any purpose.</div>
+                        </div>
+
+                        <!-- ── OWNER ── -->
+                        <div class="about-tab-pane hidden" id="about-tab-owner">
+                            <h2 style="font-size: 16px; font-weight: 800; color: #f1f5f9; margin: 0 0 18px; display: flex; align-items: center; gap: 8px;">👤 Owner &amp; Maintainers</h2>
+                            <div style="display: flex; flex-direction: column; gap: 14px;">
+                                <div style="background: linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(139,92,246,0.08) 100%); border: 1px solid rgba(59,130,246,0.2); border-radius: 12px; padding: 20px; display: flex; gap: 18px; align-items: center;">
+                                    <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">👤</div>
+                                    <div>
+                                        <div style="font-size: 18px; font-weight: 800; color: #f1f5f9; margin-bottom: 4px;">sunilbvb</div>
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">Project Creator &amp; Lead Maintainer</div>
+                                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                            <a href="https://github.com/sunilbvb" target="_blank" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: 600;">🐙 GitHub</a>
+                                            <a href="https://github.com/sunilbvb/dev-git" target="_blank" style="background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.25); color: #93c5fd; padding: 4px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; font-weight: 600;">📁 Repository</a>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px;">
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px;">🏛️ DevGit Contributors</div>
+                                    <p style="margin: 0; font-size: 12px; color: #64748b; line-height: 1.6;">DevGit is an open-source project built with contributions from the developer community. All contributors are credited in the GitHub repository under <code style="color: #8ab4ff;">Contributors</code>. The copyright is held collectively by all DevGit contributors.</p>
+                                </div>
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 14px;">
+                                    <div style="font-weight: 700; color: #93c5fd; margin-bottom: 10px;">📬 Get Involved</div>
+                                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #94a3b8;">
+                                        <div>🐛 <strong style="color: #f1f5f9;">Report a Bug:</strong> Open an issue on GitHub using the bug report template</div>
+                                        <div>✨ <strong style="color: #f1f5f9;">Request a Feature:</strong> Open a feature request issue with motivation and use case</div>
+                                        <div>🤝 <strong style="color: #f1f5f9;">Contribute Code:</strong> Fork → Branch → PR following our contributing guide</div>
+                                        <div>⭐ <strong style="color: #f1f5f9;">Star the Project:</strong> Support the project by starring it on GitHub</div>
+                                    </div>
+                                </div>
+                                <div style="text-align: center; padding: 16px; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; background: rgba(255,255,255,0.02);">
+                                    <div style="font-size: 20px; margin-bottom: 6px;">❤️</div>
+                                    <div style="font-size: 12px; color: #64748b;">Made with love for the developer community.<br>DevGit — <em>Your Git, Your Dashboard, Your Rules.</em></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- end tab content -->
+
+                    <!-- Panel Footer -->
+                    <div style="padding: 12px 24px; border-top: 1px solid #1c2d4a; background: #070d1b; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;">
+                        <span style="font-size: 11px; color: #475569;">DevGit v1.3.1 &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; © 2026 DevGit Contributors</span>
+                        <button onclick="document.getElementById('devgitAboutPanel').classList.add('hidden')" class="ui-button" data-variant="outline" data-size="sm" type="button">Close Panel</button>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to   { transform: translateX(0);    opacity: 1; }
+                }
+                .about-tab-pane { display: block; }
+                .about-tab-pane.hidden { display: none; }
+                .about-tab-btn { transition: background 0.15s ease, color 0.15s ease; }
+                .about-tab-active { background: rgba(59,130,246,0.2) !important; color: #93c5fd !important; }
+            </style>
+            <script>
+                function switchAboutTab(tabId) {
+                    // Hide all panes
+                    document.querySelectorAll('.about-tab-pane').forEach(function(p) { p.classList.add('hidden'); });
+                    // Deactivate all tab buttons
+                    document.querySelectorAll('.about-tab-btn').forEach(function(b) {
+                        b.classList.remove('about-tab-active');
+                        b.style.background = 'transparent';
+                        b.style.color = '#64748b';
+                    });
+                    // Show selected pane
+                    var pane = document.getElementById('about-tab-' + tabId);
+                    if (pane) pane.classList.remove('hidden');
+                    // Activate selected tab button
+                    var btn = document.querySelector('.about-tab-btn[data-tab="' + tabId + '"]');
+                    if (btn) {
+                        btn.classList.add('about-tab-active');
+                        btn.style.background = 'rgba(59,130,246,0.2)';
+                        btn.style.color = '#93c5fd';
+                        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                    }
+                }
+                // Close on backdrop click
+                document.getElementById('devgitAboutPanel').addEventListener('click', function(e) {
+                    if (e.target === this) this.classList.add('hidden');
+                });
+                // Close on Escape key
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        var panel = document.getElementById('devgitAboutPanel');
+                        if (panel && !panel.classList.contains('hidden')) panel.classList.add('hidden');
+                    }
+                });
+            </script>
 
             <!-- Toast Container -->
             <div id="gitflowToastContainer" style="position: fixed; top: 16px; right: 16px; z-index: 100000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>

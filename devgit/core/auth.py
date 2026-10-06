@@ -33,8 +33,9 @@ def is_allowed_origin_or_host(host_header: Optional[str], origin_header: Optiona
             return False
 
     if origin_header:
-        if origin_header == "null":
-            return True
+        if origin_header.strip().lower() == "null":
+            logger.warning("Rejected request with null origin header")
+            return False
         from urllib.parse import urlparse
         parsed = urlparse(origin_header)
         origin_domain = (parsed.hostname or "").lower()

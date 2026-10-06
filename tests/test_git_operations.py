@@ -46,6 +46,17 @@ class TestGitOperations(unittest.TestCase):
         self.assertIn("contributors", res)
         self.assertIsInstance(res["contributors"], list)
 
+    def test_tags_compare(self):
+        res = router.handle_git_tags_compare({
+            "repoPath": str(self.workspace),
+            "fromTag": "HEAD~1",
+            "toTag": "HEAD"
+        })
+        self.assertTrue(res.get("success"))
+        self.assertIn("commits", res)
+        self.assertEqual(res.get("count"), 1)
+        self.assertEqual(len(res.get("commits", [])), 1)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

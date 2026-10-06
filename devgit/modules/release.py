@@ -171,7 +171,7 @@ def handle_git_tags_compare(data: dict) -> Dict[str, Any]:
     if target not in repos:
         return {"success": False, "error": "Unknown repoPath"}
 
-    code, out, err = run_git(target, ["log", "--oneline", "--", f"{from_tag}..{to_tag}"])
+    code, out, err = run_git(target, ["log", "--oneline", f"{from_tag}..{to_tag}"])
     if code != 0:
         return {"success": False, "error": err or "Failed to compare tags"}
 

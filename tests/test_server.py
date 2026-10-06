@@ -15,9 +15,10 @@ class TestServerStartup(unittest.TestCase):
 
     def test_import_modules(self):
         """Verify that all backend modules can be imported directly."""
-        from modules import terminal, branches, commits, stash, release, ai
+        from modules import terminal, branches, commits, stash, release, ai, worktrees
         self.assertTrue(callable(terminal.validate_git_terminal_args))
         self.assertTrue(callable(branches.handle_git_branch_action))
+        self.assertTrue(callable(worktrees.get_repo_worktrees))
 
 
 if __name__ == "__main__":

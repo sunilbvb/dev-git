@@ -19,6 +19,11 @@ class TestRefValidation(unittest.TestCase):
             "tag|cat",
             "stash`id`",
             "branch\nnewline",
+            "../../etc/passwd",
+            "../secret",
+            "repo/../etc",
+            "/etc/shadow",
+            "feature//branch",
             " ",
             "",
             None
@@ -34,7 +39,9 @@ class TestRefValidation(unittest.TestCase):
             "v1.0.0",
             "release-2.5",
             "stash@{0}",
-            "HEAD~1"
+            "HEAD~1",
+            "HEAD~2..HEAD",
+            "v1.0.0..v2.0.0",
         ]
         for ref in valid_refs:
             ok, reason = validate_ref(ref)

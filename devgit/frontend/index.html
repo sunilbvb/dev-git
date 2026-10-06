@@ -68,6 +68,9 @@
                             <button class="ui-button" data-variant="outline" data-size="xs" id="gitStashManagerBtn" type="button" title="Inspect & Manage Git Stashes (Shortcut: S)" style="display: flex; align-items: center; gap: 5px;">
                                 📦 Stashes <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(S)</span>
                             </button>
+                            <button class="ui-button" data-variant="outline" data-size="xs" id="gitWorktreeManagerBtn" type="button" title="Inspect & Manage Git Worktrees (Shortcut: T)" style="display: flex; align-items: center; gap: 5px;">
+                                🌿 Worktrees <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(T)</span>
+                            </button>
                             <button class="ui-button" data-variant="outline" data-size="xs" id="gitCopyStandupBtn" type="button" title="Copy Markdown summary of dirty repos and current branches to clipboard (Shortcut: C)" style="display: flex; align-items: center; gap: 5px;">
                                 📋 Copy Standup Summary <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(C)</span>
                             </button>
@@ -799,6 +802,10 @@ git push origin v1.1.4</pre>
                             <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">S</kbd>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                            <span style="color: #cbd5e1;">Inspect & Manage Git Worktrees</span>
+                            <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">T</kbd>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);">
                             <span style="color: #cbd5e1;">Switch Workspace</span>
                             <kbd style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 11px;">W</kbd>
                         </div>
@@ -842,6 +849,48 @@ git push origin v1.1.4</pre>
                     </div>
                     <div class="ui-modal-footer">
                         <button class="ui-button" data-variant="outline" type="button" id="gitStashModalOk">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Git Worktrees Quick-Manager -->
+            <div class="ui-modal-backdrop hidden" id="gitWorktreeModal" style="z-index: 99999;">
+                <div class="ui-modal-card" style="max-width: 650px;">
+                    <div class="ui-modal-header">
+                        <h3 class="ui-modal-title">🌿 Git Worktree Manager</h3>
+                        <button class="ui-modal-close" type="button" id="gitWorktreeModalClose" aria-label="Close">&times;</button>
+                    </div>
+                    <div class="ui-modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Select Repository</label>
+                                <select id="gitWorktreeRepoSelect" class="ui-select" style="width: 100%; font-size: 13px;"></select>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 12px; border-radius: 6px;">
+                                <div style="font-size: 12px; font-weight: 600; color: #cbd5e1;">+ Add New Worktree</div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                    <input type="text" id="gitWorktreePathInput" placeholder="Worktree directory path (e.g. ../feat-worktree)" class="ui-input" style="font-size: 12px; height: 34px;" />
+                                    <input type="text" id="gitWorktreeBranchInput" placeholder="Branch name (e.g. feat/login)" class="ui-input" style="font-size: 12px; height: 34px;" />
+                                </div>
+                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;">
+                                    <label style="font-size: 12px; color: #94a3b8; display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+                                        <input type="checkbox" id="gitWorktreeNewBranchCheck" checked style="width: 14px; height: 14px; accent-color: #3b82f6; cursor: pointer;" />
+                                        Create as new branch (-b)
+                                    </label>
+                                    <button class="ui-button" data-variant="primary" data-size="sm" id="gitWorktreeCreateBtn" type="button" onclick="createGitWorktree()" style="height: 32px; white-space: nowrap;">+ Add Worktree</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Active Worktrees</label>
+                                <button class="ui-button" data-variant="outline" data-size="xs" type="button" onclick="pruneGitWorktrees()" style="font-size: 11px; padding: 2px 8px;">🧹 Prune Stale</button>
+                            </div>
+                            <div id="gitWorktreeList" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding: 2px;"></div>
+                        </div>
+                    </div>
+                    <div class="ui-modal-footer">
+                        <button class="ui-button" data-variant="outline" type="button" id="gitWorktreeModalOk">Close</button>
                     </div>
                 </div>
             </div>

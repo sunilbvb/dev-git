@@ -59,6 +59,14 @@ from devgit.modules.release import (
     handle_git_release_create,
 )
 
+from devgit.modules.worktrees import (
+    serve_git_worktrees,
+    handle_git_worktree_add,
+    handle_git_worktree_remove,
+    handle_git_worktree_prune,
+    get_repo_worktrees,
+)
+
 from devgit.modules.terminal import (
     handle_git_terminal_run,
     start_git_terminal_job as _start_git_terminal_job,
