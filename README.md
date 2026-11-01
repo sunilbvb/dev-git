@@ -2,6 +2,14 @@
 
 A lightweight, zero-dependency, local web-based dashboard designed for managing Git repositories across monorepos, multi-repo projects (`apps/`, `packages/`, `tools/`), and standalone workspaces.
 
+<p align="center">
+  <img src="docs/assets/demo.gif" alt="DevGit Multi-Repo Dashboard Showcase Demo" width="920" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+</p>
+
+<p align="center">
+  <em>⭐ If DevGit saves you time managing multi-repo workspaces, please consider giving it a star on GitHub!</em>
+</p>
+
 ---
 
 ## ✨ Features
@@ -22,7 +30,12 @@ A lightweight, zero-dependency, local web-based dashboard designed for managing 
   - Completely local and private — no third-party cloud API keys required.
 - **Branch & Release Management:**
   - Visual Gitflow branch creation, finish/merge, checkout, and deletion.
-  - Interactive conflict resolution and stash pull/pop management.
+  - Automated Hotfix workflow: branch off `main`, tag, and simultaneously merge into `main` and `develop`.
+  - In-browser Conflict Resolver with visual hunk inspector and one-click resolution.
+  - Interactive file-level staging tray: stage, unstage, or discard individual files.
+  - Interactive Git DAG commit graph with lane and branch topology rendering.
+  - Repository Health Doctor: audit stale merged branches, unpushed tags, and oversized files.
+  - Visual Worktree Manager: inspect, add, remove, and prune linked Git worktrees.
   - Tag creation, version bumping (SemVer), and GitHub-ready release summaries.
 - **Embedded Interactive Terminal:**
   - Run Git commands directly within specific repositories from the web UI.

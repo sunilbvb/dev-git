@@ -117,7 +117,7 @@ def get_enhanced_env(extra_env: Optional[Dict[str, str]] = None) -> Dict[str, st
     return env
 
 
-def run_git(repo: Path, args: List[str], timeout: int = 15, token: str = "") -> Tuple[int, str, str]:
+def run_git(repo: Path, args: List[str], timeout: int = 15, token: str = "", strip: bool = True) -> Tuple[int, str, str]:
     cmd = ["git", "-C", str(repo)]
     extra_env = {}
     
@@ -141,7 +141,9 @@ def run_git(repo: Path, args: List[str], timeout: int = 15, token: str = "") -> 
             timeout=timeout,
             env=env,
         )
-        return proc.returncode, proc.stdout.strip(), (proc.stderr or "").strip()
+        out = proc.stdout.strip() if strip else proc.stdout.rstrip("\r\n")
+        err = (proc.stderr or "").strip()
+        return proc.returncode, out, err
     except subprocess.TimeoutExpired:
         logger.error(f"Git command timed out after {timeout}s: {' '.join(cmd)}")
         return 1, "", f"Command timed out after {timeout} seconds"

@@ -217,6 +217,135 @@ def handle_git_branch_finish(data: dict) -> Dict[str, Any]:
     return {"success": True, "message": f"Merged '{branch_name}' into '{base_branch}' and deleted the branch."}
 
 
+def handle_git_hotfix_create(data: dict) -> Dict[str, Any]:
+    """Create a hotfix branch based on main, pulling latest updates first."""
+    repo_path = str(data.get("repoPath") or "").strip()
+    name = str(data.get("name") or data.get("branchName") or "").strip()
+    base_branch = str(data.get("baseBranch") or "main").strip()
+    token = str(data.get("githubToken") or "").strip()
+
+    if not repo_path or not name:
+        return {"success": False, "error": "Missing repoPath or hotfix name"}
+
+    branch_name = name if name.startswith("hotfix/") else f"hotfix/{name}"
+    valid, reason = validate_ref(branch_name)
+    if not valid:
+        return {"success": False, "error": f"Invalid hotfix branch name: {reason}"}
+
+    workspace_root = get_workspace_root()
+    repos = discover_git_repos(workspace_root)
+    target = Path(repo_path).resolve()
+    if target not in repos:
+        return {"success": False, "error": "Unknown repoPath"}
+
+    # Pre-check dirty working directory
+    code, out, _ = run_git(target, ["status", "--porcelain"])
+    if code == 0 and out.strip():
+        return {"success": False, "error": "Working directory has uncommitted changes. Stash or commit before starting a hotfix."}
+
+    # Checkout base branch (main) and pull
+    code, _, err = run_git(target, ["checkout", base_branch])
+    if code != 0:
+        return {"success": False, "error": f"Failed to checkout {base_branch}: {err}"}
+
+    run_git(target, ["pull", "origin", base_branch], timeout=20, token=token)
+
+    # Check if branch already exists
+    code, _, _ = run_git(target, ["show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}"])
+    if code == 0:
+        return {"success": False, "error": f"Branch '{branch_name}' already exists"}
+
+    code, out, err = run_git(target, ["checkout", "-b", branch_name])
+    if code != 0:
+        return {"success": False, "error": err or out or "Failed to create hotfix branch"}
+
+    return {
+        "success": True,
+        "message": f"Created and switched to hotfix branch '{branch_name}' from '{base_branch}'.",
+        "branch": branch_name
+    }
+
+
+def handle_git_hotfix_finish(data: dict) -> Dict[str, Any]:
+    """Finish hotfix: merge into main, tag release, merge into develop, and clean up branch."""
+    repo_path = str(data.get("repoPath") or "").strip()
+    branch_name = str(data.get("branchName") or "").strip()
+    tag_version = str(data.get("tagVersion") or "").strip()
+    tag_message = str(data.get("message") or f"Release {tag_version}").strip()
+    push_after = data.get("push", True) is not False
+    token = str(data.get("githubToken") or "").strip()
+
+    if not repo_path or not branch_name:
+        return {"success": False, "error": "Missing repoPath or branchName"}
+
+    valid, reason = validate_ref(branch_name)
+    if not valid:
+        return {"success": False, "error": f"Invalid branchName: {reason}"}
+
+    workspace_root = get_workspace_root()
+    repos = discover_git_repos(workspace_root)
+    target = Path(repo_path).resolve()
+    if target not in repos:
+        return {"success": False, "error": "Unknown repoPath"}
+
+    # 1. Checkout main and merge hotfix
+    code, _, err = run_git(target, ["checkout", "main"])
+    if code != 0:
+        return {"success": False, "error": f"Failed to checkout main: {err}"}
+
+    run_git(target, ["pull", "origin", "main"], timeout=20, token=token)
+
+    code, out, err = run_git(target, ["merge", "--no-edit", branch_name])
+    if code != 0:
+        msg = err or out
+        if "conflict" in msg.lower():
+            run_git(target, ["merge", "--abort"])
+            return {"success": False, "error": f"Conflict while merging into main; hotfix aborted: {msg}"}
+        return {"success": False, "error": f"Merge into main failed: {msg}"}
+
+    # 2. Create Tag if version supplied
+    if tag_version:
+        valid_tag, tag_reason = validate_ref(tag_version)
+        if valid_tag:
+            run_git(target, ["tag", "-a", tag_version, "-m", tag_message])
+
+    # 3. Push main & tags if requested
+    if push_after:
+        run_git(target, ["push", "origin", "main"], timeout=30, token=token)
+        if tag_version:
+            run_git(target, ["push", "origin", tag_version], timeout=30, token=token)
+
+    # 4. Check if develop exists, merge main/hotfix into develop
+    has_develop = _branch_exists(target, "develop")
+    develop_merged = False
+    if has_develop:
+        code, _, _ = run_git(target, ["checkout", "develop"])
+        if code == 0:
+            run_git(target, ["pull", "origin", "develop"], timeout=20, token=token)
+            code_dev_merge, out_m, err_m = run_git(target, ["merge", "--no-edit", "main"])
+            if code_dev_merge == 0:
+                develop_merged = True
+                if push_after:
+                    run_git(target, ["push", "origin", "develop"], timeout=30, token=token)
+            else:
+                run_git(target, ["merge", "--abort"])
+
+    # 5. Delete hotfix branch locally and on remote
+    run_git(target, ["branch", "-D", branch_name])
+    if push_after:
+        run_git(target, ["push", "origin", "--delete", branch_name], timeout=30, token=token)
+
+    # Switch to main as clean end state
+    run_git(target, ["checkout", "main"])
+
+    return {
+        "success": True,
+        "message": f"Successfully finished hotfix '{branch_name}': merged into main" +
+                   (f" and tagged '{tag_version}'" if tag_version else "") +
+                   (" and merged back into develop." if develop_merged else ".")
+    }
+
+
 def handle_git_branch_delete(data: dict) -> Dict[str, Any]:
     repo_path = str(data.get("repoPath") or "").strip()
     branch_name = str(data.get("branchName") or data.get("name") or "").strip()

@@ -72,8 +72,17 @@
                             <button class="ui-button" data-variant="outline" data-size="xs" id="gitStashManagerBtn" type="button" title="Inspect & Manage Git Stashes (Shortcut: S)" style="display: flex; align-items: center; gap: 5px;">
                                 📦 Stashes <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(S)</span>
                             </button>
-                            <button class="ui-button" data-variant="outline" data-size="xs" id="gitWorktreeManagerBtn" type="button" title="Inspect & Manage Git Worktrees (Shortcut: T)" style="display: flex; align-items: center; gap: 5px;">
+                            <button class="ui-button" data-variant="outline" data-size="xs" id="gitWorktreeManagerBtn" type="button" title="Inspect & Manage Git Worktrees (Shortcut: T)" style="display: flex; align-items: center; gap: 5px;" onclick="if(typeof openWorktreesModal==='function')openWorktreesModal();">
                                 🌿 Worktrees <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(T)</span>
+                            </button>
+                            <button class="ui-button" data-variant="outline" data-size="xs" id="gitGraphBtn" type="button" title="Visualize Git DAG commit topology (Shortcut: G)" style="display: flex; align-items: center; gap: 5px;" onclick="if(typeof openGitGraphModal==='function')openGitGraphModal();">
+                                📊 Graph <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(G)</span>
+                            </button>
+                            <button class="ui-button" data-variant="outline" data-size="xs" id="gitDoctorBtn" type="button" title="Audit repository health and fix issues (Shortcut: D)" style="display: flex; align-items: center; gap: 5px;" onclick="if(typeof openDoctorModal==='function')openDoctorModal();">
+                                🩺 Doctor <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(D)</span>
+                            </button>
+                            <button class="ui-button" data-variant="outline" data-size="xs" id="gitStagingBtn" type="button" title="Stage and inspect file-level changes (Shortcut: P)" style="display: flex; align-items: center; gap: 5px;" onclick="if(typeof openStagingModal==='function')openStagingModal();">
+                                📋 Staging <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(P)</span>
                             </button>
                             <button class="ui-button" data-variant="outline" data-size="xs" id="gitCopyStandupBtn" type="button" title="Copy Markdown summary of dirty repos and current branches to clipboard (Shortcut: C)" style="display: flex; align-items: center; gap: 5px;">
                                 📋 Copy Standup Summary <span style="font-size: 10px; opacity: 0.6; font-family: monospace;">(C)</span>
@@ -912,6 +921,11 @@ git push origin v1.1.4</pre>
     <script src="gitflow_panel.js?v=1.3.1"></script>
     <script src="release_all.js?v=1.1.0"></script>
     <script src="server_control.js?v=1.0.0"></script>
+    <script src="worktree_panel.js?v=1.0.0"></script>
+    <script src="conflict_resolver.js?v=1.0.0"></script>
+    <script src="staging.js?v=1.0.0"></script>
+    <script src="git_graph.js?v=1.0.0"></script>
+    <script src="doctor_panel.js?v=1.0.0"></script>
     <script src="app.js?v=1.3.1"></script>
     <script>
         if (typeof lucide !== 'undefined' && lucide && lucide.createIcons) {

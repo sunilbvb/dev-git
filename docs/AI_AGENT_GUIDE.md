@@ -49,6 +49,10 @@ Every repo operation takes `repoPath`, an **absolute path of a repo discovered i
 | `/api/git/diff`, `/api/git/changes` | `repoPath` | Diffs / changed files |
 | `/api/git/stashes` | `repoPath` | Stash list |
 | `/api/git/conflicts` | `repoPath` | Conflicted files |
+| `/api/git/conflicts/file` | `repoPath`, `file` | Conflict markers and hunks (ours vs theirs) |
+| `/api/git/files` | `repoPath` | Categorized file status (staged, unstaged, untracked) |
+| `/api/git/graph` | `repoPath`, `limit` | Topological commit DAG graph and branch references |
+| `/api/git/doctor` | `repoPath` | Health audit (stale branches, unpushed tags, large files) |
 | `/api/git/tags` (POST) | `repoPath` | Tag list (note: POST) |
 
 ### Write (POST, JSON body)
@@ -57,10 +61,16 @@ Every repo operation takes `repoPath`, an **absolute path of a repo discovered i
 | :--- | :--- | :--- |
 | `/api/git/fetch` | `scope` (`all`\|`one`), `repoPath` (if `one`) | `git fetch` |
 | `/api/git/pull` | `repoPath` | Pull current branch |
+| `/api/git/stage` | `repoPath`, `action`, `files` | Stage, unstage, or discard file changes |
 | `/api/git/branch/create` | `repoPath`, `branchName`, `checkout` (default `true`) | `git checkout -b <name>` — **from the current HEAD, not from a chosen base** (see §5) |
+| `/api/git/hotfix/create` | `repoPath`, `name`, `baseBranch` | Create hotfix branch off `main` |
+| `/api/git/hotfix/finish` | `repoPath`, `branchName`, `tagVersion`, `push` | Merge to `main`, tag, merge to `develop`, delete hotfix |
 | `/api/git/branch/action` | `repoPath`, `branch`, `action`, extras | Actions below. **Refuses if the working tree is dirty.** |
 | `/api/git/branch/delete` | `repoPath`, `branchName`, `force` | Delete branch. **Needs user approval.** |
 | `/api/git/branch/finish` | `repoPath`, `branchName`, `baseBranch`, `deleteBranch` | Merge into base and push. **Needs user approval.** |
+| `/api/git/conflict/resolve` | `repoPath`, `file`, `strategy`, `content` | Resolve conflict with ours, theirs, or custom content |
+| `/api/git/conflict/abort` | `repoPath` | Abort ongoing merge or rebase |
+| `/api/git/doctor/fix` | `repoPath`, `action`, `item` | Run automated fixes (delete stale branch, prune remote) |
 | `/api/git/commit` | `repoPath`, `message`, `stageAll` | **Needs user approval.** |
 | `/api/git/push` | `repoPath`, `force` | **Needs user approval.** |
 | `/api/git/stash/create` | `repoPath`, `message`, `includeUntracked` | Stash |

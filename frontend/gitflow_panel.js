@@ -884,7 +884,14 @@ window.openGitflowPR = (name, base) => {
 
 window.finishGitflowBranch = async (event, name, base) => {
     if (!_selectedGitflowRepo) return;
-    const confirmFinish = confirm(`Are you sure you want to finish branch "${name}"?\n\nThis will:\n1. Merge "${name}" into "${base}"\n2. Push "${base}" to GitHub\n\nThe branch "${name}" is kept (not deleted).`);
+    const isHotfix = name.startsWith('hotfix/');
+    let confirmMsg = `Are you sure you want to finish branch "${name}"?\n\nThis will:\n1. Merge "${name}" into "${base}"\n2. Push "${base}" to GitHub`;
+    if (isHotfix) {
+        confirmMsg = `Are you sure you want to finish Hotfix "${name}"?\n\nThis will:\n1. Merge into main\n2. Tag release\n3. Push to origin\n4. Merge into develop\n5. Clean up hotfix branch.`;
+    } else {
+        confirmMsg += `\n\nThe branch "${name}" is kept (not deleted).`;
+    }
+    const confirmFinish = confirm(confirmMsg);
     if (!confirmFinish) return;
 
     const btn = event.target;
@@ -895,17 +902,27 @@ window.finishGitflowBranch = async (event, name, base) => {
     try {
         const globalMelos = document.getElementById('gitGlobalUseMelos');
         const useMelos = globalMelos ? globalMelos.checked : false;
+        const endpoint = isHotfix ? '/api/git/hotfix/finish' : '/api/git/branch/finish';
+        const tagVersion = isHotfix ? name.replace('hotfix/', '') : '';
 
-        const res = await fetch(apiUrl('/api/git/branch/finish'), {
+        const payload = isHotfix ? {
+            repoPath: _selectedGitflowRepo,
+            branchName: name,
+            tagVersion: tagVersion,
+            push: true,
+            githubToken: localStorage.getItem('devgit_github_token_v1') || ''
+        } : {
+            repoPath: _selectedGitflowRepo,
+            branchName: name,
+            baseBranch: base,
+            useMelos: useMelos,
+            githubToken: localStorage.getItem('devgit_github_token_v1') || ''
+        };
+
+        const res = await fetch(apiUrl(endpoint), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                repoPath: _selectedGitflowRepo,
-                branchName: name,
-                baseBranch: base,
-                useMelos: useMelos,
-                githubToken: localStorage.getItem('devgit_github_token_v1') || ''
-            })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (!data.success) {
@@ -916,7 +933,7 @@ window.finishGitflowBranch = async (event, name, base) => {
             }
             return;
         }
-        showGitflowToast("Branch Finished", `Merged ${name} into ${base}. Branch kept.`);
+        showGitflowToast("Branch Finished", data.message || `Successfully finished ${name}`);
         selectGitflowRepo(_selectedGitflowRepo); // Refresh console
     } catch (err) {
         alert("❌ Network Error: " + err.message);

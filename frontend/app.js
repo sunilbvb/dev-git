@@ -4288,6 +4288,10 @@ window.pruneGitWorktrees = async () => {
 };
 
 window.openWorktreeModal = (repoPath) => {
+    if (typeof openWorktreesModal === 'function') {
+        openWorktreesModal(repoPath);
+        return;
+    }
     const modal = document.getElementById('gitWorktreeModal');
     const repoSelect = document.getElementById('gitWorktreeRepoSelect');
     if (modal) {
@@ -4302,11 +4306,18 @@ window.openWorktreeModal = (repoPath) => {
 };
 
 window.closeWorktreeModal = () => {
+    if (typeof closeWorktreesModal === 'function') {
+        closeWorktreesModal();
+    }
     const modal = document.getElementById('gitWorktreeModal');
     if (modal) modal.classList.add('hidden');
 };
 
 window.openConflictModal = async (repoPath) => {
+    if (typeof openConflictsModal === 'function') {
+        openConflictsModal(repoPath);
+        return;
+    }
     const modal = document.getElementById('gitConflictModal');
     const list = document.getElementById('gitConflictFileList');
     if (!modal || !list) return;
@@ -4671,6 +4682,24 @@ function initKeyboardShortcuts() {
                 return;
             }
 
+            if (e.key.toLowerCase() === 'g' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                if (typeof openGitGraphModal === 'function') openGitGraphModal();
+                return;
+            }
+
+            if (e.key.toLowerCase() === 'd' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                if (typeof openDoctorModal === 'function') openDoctorModal();
+                return;
+            }
+
+            if (e.key.toLowerCase() === 'p' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                if (typeof openStagingModal === 'function') openStagingModal();
+                return;
+            }
+
             if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
                 copyStandupSummary();
@@ -4696,3 +4725,40 @@ function initKeyboardShortcuts() {
 // Auto-initialize search and keyboard listeners on load
 initRepoSearchAndFilter();
 initKeyboardShortcuts();
+
+// Demo automation helper for docs, screenshots & showcase recording
+(function initDemoAutomation() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const demo = params.get('demo');
+        if (!demo) return;
+
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const repoCards = document.querySelectorAll('.git-repo');
+                const firstRepo = repoCards.length > 0 ? repoCards[0].getAttribute('data-repo-path') : '';
+
+                if (demo === 'gitflow') {
+                    if (window.selectGitflowRepo && firstRepo) {
+                        window.selectGitflowRepo(firstRepo, repoCards[0]);
+                    }
+                    const sec = document.getElementById('gitflowDashboardSection');
+                    if (sec) sec.classList.remove('hidden');
+                    const guide = document.getElementById('gitflowGuidePanel');
+                    if (guide) guide.classList.remove('hidden');
+                } else if (demo === 'release') {
+                    if (typeof openReleaseAllModal === 'function') openReleaseAllModal();
+                } else if (demo === 'worktree') {
+                    const btn = document.getElementById('gitWorktreeManagerBtn');
+                    if (btn) btn.click();
+                } else if (demo === 'commit') {
+                    if (typeof openAiCommitModal === 'function' && firstRepo) {
+                        openAiCommitModal(firstRepo);
+                    }
+                } else if (demo === 'shortcuts') {
+                    if (typeof openShortcutsModal === 'function') openShortcutsModal();
+                }
+            }, 1000);
+        });
+    } catch (_) {}
+})();

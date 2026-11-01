@@ -313,6 +313,14 @@ class GitHandler(http.server.SimpleHTTPRequestHandler):
                 _write_json(self, router.serve_git_commits(self.path))
             elif self.path.startswith("/api/git/worktrees"):
                 _write_json(self, router.serve_git_worktrees(self.path))
+            elif self.path.startswith("/api/git/files"):
+                _write_json(self, router.serve_git_status_files(self.path))
+            elif self.path.startswith("/api/git/conflicts/file"):
+                _write_json(self, router.serve_git_conflict_file(self.path))
+            elif self.path.startswith("/api/git/graph"):
+                _write_json(self, router.serve_git_graph(self.path))
+            elif self.path.startswith("/api/git/doctor"):
+                _write_json(self, router.serve_git_doctor(self.path))
             else:
                 _serve_api_not_found(self)
         else:
@@ -364,8 +372,18 @@ class GitHandler(http.server.SimpleHTTPRequestHandler):
                 _write_json(self, router.handle_git_stash_drop(payload))
             elif self.path.startswith("/api/git/stash/pop"):
                 _write_json(self, router.handle_git_stash_pop(payload))
+            elif self.path.startswith("/api/git/conflict/abort"):
+                _write_json(self, router.handle_git_conflict_abort(payload))
             elif self.path.startswith("/api/git/conflict/resolve"):
                 _write_json(self, router.handle_git_conflict_resolve(payload))
+            elif self.path.startswith("/api/git/stage"):
+                _write_json(self, router.handle_git_stage(payload))
+            elif self.path.startswith("/api/git/hotfix/create"):
+                _write_json(self, router.handle_git_hotfix_create(payload))
+            elif self.path.startswith("/api/git/hotfix/finish"):
+                _write_json(self, router.handle_git_hotfix_finish(payload))
+            elif self.path.startswith("/api/git/doctor/fix"):
+                _write_json(self, router.handle_git_doctor_fix(payload))
             elif self.path.startswith("/api/git/tag/create"):
                 _write_json(self, router.handle_git_tag_create(payload))
             elif self.path.startswith("/api/git/tags/compare"):

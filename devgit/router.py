@@ -36,8 +36,31 @@ from devgit.modules.branches import (
     handle_git_branch_create,
     handle_git_branch_delete,
     handle_git_branch_finish,
+    handle_git_hotfix_create,
+    handle_git_hotfix_finish,
     handle_git_branch_action,
     handle_git_sync_all_branches,
+)
+
+from devgit.modules.staging import (
+    serve_git_status_files,
+    handle_git_stage,
+)
+
+from devgit.modules.conflicts import (
+    serve_git_conflicts_list,
+    serve_git_conflict_file,
+    handle_git_conflict_resolve,
+    handle_git_conflict_abort,
+)
+
+from devgit.modules.graph import (
+    serve_git_graph,
+)
+
+from devgit.modules.doctor import (
+    serve_git_doctor,
+    handle_git_doctor_fix,
 )
 
 from devgit.modules.scoped_branch import handle_git_branch_create_scoped
