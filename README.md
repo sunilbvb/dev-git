@@ -52,6 +52,13 @@ Start DevGit pointing to your current directory:
 ./start.sh
 ```
 
+To restart or stop the running server:
+
+```bash
+./restart.sh
+./stop.sh
+```
+
 Or target any workspace directly via CLI flag:
 
 ```bash
@@ -167,6 +174,7 @@ DevGit is styled with the [`developer-dashboard-ui`](https://github.com/sunilbvb
 
 DevGit is an open-source project welcoming community contributions!
 
+- 🤖 **[AI Agent Guide (docs/AI_AGENT_GUIDE.md)](docs/AI_AGENT_GUIDE.md)**: Guidelines and REST endpoint reference for AI coding agents operating DevGit across multi-repo workspaces.
 - 📖 **[Standard Git Workflow Practices](docs/GIT_WORKFLOW.md)**: Detailed guide on supported branching models (Trunk-Based and classical Gitflow), Conventional Commits specification, release tagging, and multi-repo synchronization.
 - 🤝 **[Contributing Guidelines (CONTRIBUTING.md)](CONTRIBUTING.md)**: Setup guide, architectural principles (strict zero-dependency standard), branch naming conventions, coding standards, and PR lifecycle.
 - 📜 **[Code of Conduct](.github/CODE_OF_CONDUCT.md)**: Contributor standards and community pledge.

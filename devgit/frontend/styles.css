@@ -1582,3 +1582,14 @@ select.git-branch-select option {
     color: #ffffff !important;
     background-color: #101530 !important;
 }
+
+/* Modals in this app are shown by removing the `hidden` class only; make the design-system
+   backdrop (which defaults to opacity:0 / visibility:hidden) visible whenever it is not hidden. */
+.ui-modal-backdrop:not(.hidden) {
+  opacity: 1;
+  visibility: visible;
+}
+.ui-modal-backdrop:not(.hidden) .ui-modal {
+  opacity: 1;
+  transform: none;
+}

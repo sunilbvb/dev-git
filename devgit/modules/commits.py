@@ -1,3 +1,4 @@
+import re
 import time
 import logging
 import threading
@@ -5,7 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, List
 from urllib.parse import urlparse, parse_qs
 
-from devgit.core.git import get_workspace_root, discover_git_repos, run_git, git_repo_status
+from devgit.core.git import get_workspace_root, discover_git_repos, run_git, git_repo_status, validate_ref
 from devgit.core.jobs import create_job, append_job_log, complete_job
 
 logger = logging.getLogger("devgit.commits")
@@ -124,10 +125,18 @@ def serve_git_commits(path_str: str) -> Dict[str, Any]:
     parsed = urlparse(path_str)
     query = parse_qs(parsed.query)
     repo_path = (query.get("repoPath") or [""])[0].strip()
-    limit = int((query.get("limit") or ["30"])[0])
+    branch = (query.get("branch") or [""])[0].strip()
+    try:
+        limit = max(1, min(int((query.get("limit") or ["50"])[0]), 500))
+    except ValueError:
+        limit = 50
 
     if not repo_path:
         return {"success": False, "error": "Missing repoPath"}
+    if branch:
+        valid, reason = validate_ref(branch)
+        if not valid:
+            return {"success": False, "error": f"Invalid branch: {reason}"}
 
     workspace_root = get_workspace_root()
     repos = discover_git_repos(workspace_root)
@@ -135,23 +144,66 @@ def serve_git_commits(path_str: str) -> Dict[str, Any]:
     if target not in repos:
         return {"success": False, "error": "Unknown repoPath"}
 
-    code, out, err = run_git(target, ["log", f"-n{limit}", "--format=%H|%an|%ae|%at|%s"])
+    web_url_prefix = ""
+    code_r, rem_url, _ = run_git(target, ["remote", "get-url", "origin"], timeout=10)
+    if code_r == 0 and rem_url.strip():
+        match = re.search(r"github\.com[:/]([^/]+)/([^/.]+?)(?:\.git)?$", rem_url.strip())
+        if match:
+            owner, repo_name = match.groups()
+            web_url_prefix = f"https://github.com/{owner}/{repo_name}/commit/"
+
+    # \x1e starts each record so subjects may contain "|"; --numstat adds per-commit change counts.
+    args = [
+        "log", f"-n{limit}",
+        "--pretty=format:%x1e%H|%h|%an|%ae|%ad|%ar|%at|%s",
+        "--date=format:%b %d, %Y %I:%M %p",
+        "--numstat",
+    ]
+    if branch:
+        args.append(branch)
+    args.append("--")
+    code, out, err = run_git(target, args)
     if code != 0:
-        return {"success": False, "error": err or "Failed to get commits"}
+        return {"success": False, "error": f"Failed to get commits: {err or out}"}
 
     commits = []
-    for line in out.splitlines():
-        if not line.strip():
+    for record in out.split("\x1e"):
+        record = record.strip("\n")
+        if not record.strip():
             continue
-        parts = line.split("|")
-        if len(parts) >= 5:
-            commits.append({
-                "hash": parts[0],
-                "author": parts[1],
-                "email": parts[2],
-                "timestamp": int(parts[3]),
-                "subject": parts[4],
-            })
+        lines = record.split("\n")
+        parts = lines[0].split("|", 7)
+        if len(parts) < 8:
+            continue
+        files_changed = insertions = deletions = 0
+        for stat_line in lines[1:]:
+            stat = stat_line.strip().split("\t")
+            if len(stat) < 3:
+                continue
+            files_changed += 1
+            if stat[0].isdigit():
+                insertions += int(stat[0])
+            if stat[1].isdigit():
+                deletions += int(stat[1])
+        full_sha, short_sha, author, email, abs_date, rel_date, ts, subject = parts
+        commits.append({
+            "sha": short_sha,
+            "fullSha": full_sha,
+            "author": author,
+            "authorEmail": email,
+            "dateAbsolute": abs_date,
+            "date": rel_date,
+            "message": subject,
+            "filesChanged": files_changed,
+            "insertions": insertions,
+            "deletions": deletions,
+            "webUrl": f"{web_url_prefix}{full_sha}" if web_url_prefix else "",
+            # Legacy field names kept for existing callers.
+            "hash": full_sha,
+            "email": email,
+            "timestamp": int(ts) if ts.isdigit() else 0,
+            "subject": subject,
+        })
 
     return {"success": True, "commits": commits, "repo": str(target)}
 

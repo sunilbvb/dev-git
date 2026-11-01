@@ -35,9 +35,12 @@ from devgit.modules.branches import (
     serve_git_branches,
     handle_git_branch_create,
     handle_git_branch_delete,
+    handle_git_branch_finish,
     handle_git_branch_action,
     handle_git_sync_all_branches,
 )
+
+from devgit.modules.scoped_branch import handle_git_branch_create_scoped
 
 from devgit.modules.stash import (
     serve_git_stashes,
@@ -58,6 +61,13 @@ from devgit.modules.release import (
     handle_git_tag_edit,
     handle_git_release_create,
 )
+
+from devgit.modules.release_all import (
+    handle_git_release_all_preview,
+    handle_git_release_all_run,
+)
+
+from devgit.core.workspaces import add_workspace, remove_workspace, list_workspaces
 
 from devgit.modules.worktrees import (
     serve_git_worktrees,
@@ -95,6 +105,35 @@ from devgit.modules.commits import (
 )
 
 
+def serve_saved_workspaces() -> dict:
+    return {"success": True, "workspaces": list_workspaces()}
+
+
+def handle_workspace_save(data: dict) -> dict:
+    path_str = (data.get("workspace") or data.get("path") or "").strip()
+    if not path_str:
+        return {"success": False, "error": "Missing workspace path"}
+    path = Path(path_str).expanduser().resolve()
+    if not path.is_dir():
+        return {"success": False, "error": f"Directory does not exist: {path}"}
+    try:
+        add_workspace(path)
+    except OSError as e:
+        return {"success": False, "error": f"Could not save: {e}"}
+    return serve_saved_workspaces()
+
+
+def handle_workspace_remove(data: dict) -> dict:
+    path_str = (data.get("workspace") or data.get("path") or "").strip()
+    if not path_str:
+        return {"success": False, "error": "Missing workspace path"}
+    try:
+        remove_workspace(path_str)
+    except OSError as e:
+        return {"success": False, "error": f"Could not remove: {e}"}
+    return serve_saved_workspaces()
+
+
 def handle_workspace_switch(data: dict) -> dict:
     new_path_str = (data.get("workspace") or data.get("workspacePath") or data.get("path") or "").strip()
     if not new_path_str:
@@ -105,6 +144,10 @@ def handle_workspace_switch(data: dict) -> dict:
         return {"success": False, "error": f"Directory does not exist: {new_path}"}
 
     set_workspace_root(new_path)
+    try:
+        add_workspace(new_path)
+    except OSError:
+        pass
     if _CACHE_FILE.exists():
         try:
             _CACHE_FILE.unlink()
@@ -114,6 +157,7 @@ def handle_workspace_switch(data: dict) -> dict:
     return {
         "success": True,
         "message": f"Workspace switched to {new_path}",
+        "workspace": str(new_path),
         "workspaceRoot": str(new_path),
         "name": new_path.name
     }

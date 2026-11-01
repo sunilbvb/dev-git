@@ -56,6 +56,10 @@
                             </label>
                             <button class="ui-button" data-variant="secondary" data-size="sm" id="gitRefreshReposBtn" type="button" title="Refresh all repositories (Shortcut: R)">🔄 Refresh (R)</button>
                             <button class="ui-button" data-variant="primary" data-size="sm" id="gitFetchAllBtn" type="button" title="Git Fetch All (Shortcut: F)">Git Fetch All (F)</button>
+                            <button class="ui-button" data-variant="secondary" data-size="sm" id="gitReleaseAllBtn" type="button" title="Merge develop into main, tag and release across repos" onclick="openReleaseAllModal()">🚀 Release All</button>
+                            <button class="ui-button" data-variant="secondary" data-size="sm" id="gitSyncDevelopBtn" type="button" title="Merge main back into develop across repos" onclick="openSyncDevelopModal()">🔁 Sync develop</button>
+                            <button class="ui-button" data-variant="secondary" data-size="sm" id="gitRestartServerBtn" type="button" title="Restart the DevGit server (keeps workspace and token)" onclick="restartDevGitServer()">♻️ Restart server</button>
+                            <button class="ui-button" data-variant="outline" data-size="sm" id="gitStopServerBtn" type="button" title="Stop the DevGit server" onclick="stopDevGitServer()">⏻ Stop server</button>
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap;">
@@ -402,7 +406,8 @@ git push origin v1.1.4</pre>
                         <div style="display: flex; gap: 12px;">
                             <div style="display: flex; flex-direction: column; gap: 6px; flex: 1;" id="gitflowVersionScopeField">
                                 <label style="font-size: 12px; font-weight: 600; color: #94a3b8;" id="gitflowVersionScopeLabel">Version/Scope (e.g. v1.1.0)</label>
-                                <input type="text" id="gitflowVersionScope" placeholder="v1.1.0" class="ui-input" value="v1.1.0" />
+                                <input type="text" id="gitflowVersionScope" placeholder="v1.1.0" class="ui-input" value="" />
+                                <span id="gitflowVersionScopeHint" style="font-size: 11px; color: #64748b;"></span>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 6px; flex: 2;">
                                 <label style="font-size: 12px; font-weight: 600; color: #94a3b8;" id="gitflowTicketLabel">Ticket ID or Scope Name</label>
@@ -765,6 +770,10 @@ git push origin v1.1.4</pre>
                             <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Workspace Directory</label>
                             <input type="text" id="gitSwitchWorkspaceInput" class="ui-input" placeholder="/path/to/my-monorepo" style="font-family: monospace; font-size: 13px;" />
                         </div>
+                        <div style="margin-top: 12px;">
+                            <label style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Saved Workspaces</label>
+                            <div id="gitSavedWorkspaces" style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 220px; overflow-y: auto;"></div>
+                        </div>
                     </div>
                     <div class="ui-modal-footer">
                         <button class="ui-button" data-variant="outline" type="button" id="gitSwitchWorkspaceCancel">Cancel</button>
@@ -899,8 +908,10 @@ git push origin v1.1.4</pre>
             <div id="gitflowToastContainer" style="position: fixed; top: 16px; right: 16px; z-index: 100000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>
             </div>
 
-    <script src="/js/core_utils.js"></script>
+    <script src="/js/core_utils.js?v=1.0.1"></script>
     <script src="gitflow_panel.js?v=1.3.1"></script>
+    <script src="release_all.js?v=1.1.0"></script>
+    <script src="server_control.js?v=1.0.0"></script>
     <script src="app.js?v=1.3.1"></script>
     <script>
         if (typeof lucide !== 'undefined' && lucide && lucide.createIcons) {

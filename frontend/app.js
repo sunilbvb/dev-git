@@ -1037,6 +1037,7 @@ function _gs2BuildGroup(rawPath, group, head) {
         const name = String(b.name || '');
         const parts = name.split('/');
         if (parts.length > 2) {
+            let subFolder = parts[1];
             const isConfiguredApp = Array.isArray(_appsConfigCache) && _appsConfigCache.some(a => (a.id || '').toLowerCase() === subFolder.toLowerCase());
             if (isConfiguredApp && parts.length > 3) {
                 subFolder = parts[2]; // Use version (e.g. "v1.1.2") instead of app prefix
@@ -3202,16 +3203,107 @@ function openGitMergeModal(repoPath, branch, btn) {
 
         if (!modal || !btn) return;
 
+        const listEl = document.getElementById('gitSavedWorkspaces');
+
+        const switchTo = async (newPath, btnEl) => {
+            if (!newPath) return;
+            if (btnEl) btnEl.disabled = true;
+            try {
+                const res = await fetch(apiUrl('/api/workspace/switch'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ workspace: newPath })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Switched workspace to ${data.name || data.workspace}`, 'success');
+                    if (pathEl) {
+                        pathEl.textContent = data.workspace;
+                        pathEl.title = data.workspace;
+                    }
+                    closeModal();
+                    loadGitRepos(true);
+                } else {
+                    showToast(data.error || 'Failed to switch workspace', 'error');
+                    renderSaved();
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                if (btnEl) btnEl.disabled = false;
+            }
+        };
+
+        const renderSaved = async () => {
+            if (!listEl) return;
+            let items = [];
+            try {
+                const res = await fetch(apiUrl('/api/workspaces'));
+                const data = await res.json();
+                items = data.workspaces || [];
+            } catch (e) {
+                console.warn('Failed to load saved workspaces', e);
+            }
+            listEl.textContent = '';
+            if (!items.length) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'font-size:12px;color:#64748b;';
+                empty.textContent = 'None yet. Workspaces you switch to are saved here.';
+                listEl.appendChild(empty);
+                return;
+            }
+            const current = pathEl ? pathEl.textContent : '';
+            items.forEach(w => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:6px;';
+                const pick = document.createElement('button');
+                pick.type = 'button';
+                pick.className = 'ui-button';
+                pick.dataset.variant = 'ghost';
+                pick.style.cssText = 'flex:1;text-align:left;justify-content:flex-start;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;';
+                pick.title = w.path;
+                pick.textContent = (w.path === current ? '● ' : '') + w.name + (w.exists ? '' : ' (missing)') + '  —  ' + w.path;
+                pick.disabled = !w.exists;
+                pick.addEventListener('click', () => switchTo(w.path, pick));
+                const del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'ui-button';
+                del.dataset.variant = 'ghost';
+                del.title = 'Remove from saved list';
+                del.textContent = '✕';
+                del.addEventListener('click', async () => {
+                    try {
+                        await fetch(apiUrl('/api/workspaces/remove'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ workspace: w.path })
+                        });
+                    } catch (e) {
+                        showToast(e.message, 'error');
+                    }
+                    renderSaved();
+                });
+                row.appendChild(pick);
+                row.appendChild(del);
+                listEl.appendChild(row);
+            });
+        };
+
         const openModal = () => {
+            renderSaved();
             if (input && pathEl) {
                 input.value = (pathEl.textContent === 'Loading...' ? '' : pathEl.textContent);
             }
             modal.classList.remove('hidden');
+            modal.classList.add('ui-active');
+            modal.dataset.state = 'active';
             if (input) input.focus();
         };
 
         const closeModal = () => {
             modal.classList.add('hidden');
+            modal.classList.remove('ui-active');
+            delete modal.dataset.state;
         };
 
         btn.addEventListener('click', openModal);
@@ -3221,35 +3313,148 @@ function openGitMergeModal(repoPath, branch, btn) {
         if (submit) {
             submit.addEventListener('click', async () => {
                 const newPath = (input ? input.value : '').trim();
-                if (!newPath) return;
-                submit.disabled = true;
                 submit.textContent = 'Switching...';
+                await switchTo(newPath, submit);
+                submit.textContent = 'Switch Workspace';
+            });
+        }
+    }
+
+
+    function _initGitTerminal() {
+        const select = document.getElementById('gitTerminalRepoSelect');
+        const input = document.getElementById('gitTerminalInput');
+        const sendBtn = document.getElementById('gitTerminalSendBtn');
+        const clearBtn = document.getElementById('gitTerminalClearBtn');
+        const killBtn = document.getElementById('gitTerminalKillBtn');
+        const output = document.getElementById('gitTerminalOutput');
+        const prompt = document.getElementById('gitTerminalPrompt');
+        if (!select || !input || !sendBtn || !output) return;
+
+        const WELCOME = 'Welcome to Interactive Git Console. Select a repository above to begin.';
+        let activeJobId = null;
+        let pollTimer = null;
+        const history = [];
+        let historyIdx = 0;
+
+        const append = (text) => {
+            output.textContent += text;
+            output.scrollTop = output.scrollHeight;
+        };
+
+        const syncEnabled = () => {
+            const hasRepo = !!select.value;
+            const busy = !!activeJobId;
+            input.disabled = !hasRepo || busy;
+            sendBtn.disabled = !hasRepo || busy;
+            if (killBtn) killBtn.disabled = !busy;
+            input.placeholder = hasRepo ? 'Type a git command, e.g. status or git log -n 5' : 'Select a repository above to enable terminal...';
+            if (prompt) {
+                const opt = select.options[select.selectedIndex];
+                prompt.textContent = hasRepo && opt ? `${opt.textContent} $` : 'git-repo $';
+            }
+        };
+
+        const finish = () => {
+            if (pollTimer) clearTimeout(pollTimer);
+            pollTimer = null;
+            activeJobId = null;
+            syncEnabled();
+            if (!input.disabled) input.focus();
+        };
+
+        const poll = async (jobId, shownLen) => {
+            try {
+                const res = await fetch(apiUrl(`/api/job?id=${encodeURIComponent(jobId)}`));
+                const data = await res.json();
+                const job = data.job || data;
+                if (!data.success && !data.job) throw new Error(data.error || 'Failed to poll job');
+                const text = (job.output || '') + (job.error ? (job.output ? '\n' : '') + job.error : '');
+                if (text.length > shownLen) {
+                    append(text.slice(shownLen));
+                    shownLen = text.length;
+                }
+                if (job.status === 'running' || job.status === 'stopping') {
+                    pollTimer = setTimeout(() => poll(jobId, shownLen), 600);
+                    return;
+                }
+                if (shownLen === 0) append('(no output)\n');
+                append('\n');
+                finish();
+            } catch (err) {
+                append(`\nError: ${err.message}\n`);
+                finish();
+            }
+        };
+
+        const run = async (rawCommand) => {
+            const command = (rawCommand || '').trim();
+            if (!command || !select.value || activeJobId) return;
+            if (history[history.length - 1] !== command) history.push(command);
+            historyIdx = history.length;
+            if (output.textContent === WELCOME) output.textContent = '';
+            input.value = '';
+            activeJobId = 'pending';
+            syncEnabled();
+            try {
+                const res = await fetch(apiUrl('/api/git/terminal/run'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ repoPath: select.value, command })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Command failed to start');
+                activeJobId = String(data.jobId);
+                syncEnabled();
+                poll(activeJobId, 0);
+            } catch (err) {
+                append(`Error: ${err.message}\n\n`);
+                finish();
+            }
+        };
+
+        select.addEventListener('change', syncEnabled);
+        new MutationObserver(() => { if (!activeJobId) syncEnabled(); }).observe(select, { childList: true });
+        sendBtn.addEventListener('click', () => run(input.value));
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                run(input.value);
+            } else if (e.key === 'ArrowUp' && history.length) {
+                e.preventDefault();
+                historyIdx = Math.max(0, historyIdx - 1);
+                input.value = history[historyIdx] || '';
+            } else if (e.key === 'ArrowDown' && history.length) {
+                e.preventDefault();
+                historyIdx = Math.min(history.length, historyIdx + 1);
+                input.value = history[historyIdx] || '';
+            }
+        });
+        if (clearBtn) clearBtn.addEventListener('click', () => { output.textContent = select.value ? '' : WELCOME; });
+        if (killBtn) {
+            killBtn.addEventListener('click', async () => {
+                if (!activeJobId || activeJobId === 'pending') return;
                 try {
-                    const res = await fetch(apiUrl('/api/workspace/switch'), {
+                    await fetch(apiUrl('/api/job/stop'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ workspace: newPath })
+                        body: JSON.stringify({ jobId: activeJobId })
                     });
-                    const data = await res.json();
-                    if (data.success) {
-                        showToast(`Switched workspace to ${data.name || data.workspace}`, 'success');
-                        if (pathEl) {
-                            pathEl.textContent = data.workspace;
-                            pathEl.title = data.workspace;
-                        }
-                        closeModal();
-                        loadGitRepos(true);
-                    } else {
-                        showToast(data.error || 'Failed to switch workspace', 'error');
-                    }
                 } catch (err) {
-                    showToast(err.message, 'error');
-                } finally {
-                    submit.disabled = false;
-                    submit.textContent = 'Switch Workspace';
+                    append(`Error: ${err.message}\n`);
                 }
             });
         }
+        document.querySelectorAll('.git-terminal-suggestions [data-cmd]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                if (!select.value) {
+                    append('Select a target repository first.\n');
+                    return;
+                }
+                run(btn.dataset.cmd);
+            });
+        });
+        syncEnabled();
     }
 
     // Render shimmers immediately on initial load
@@ -3257,6 +3462,7 @@ function openGitMergeModal(repoPath, branch, btn) {
     setTimeout(() => {
         loadWorkspaceInfo();
         _initWorkspaceSwitcher();
+        _initGitTerminal();
         loadGitRepos();
         startGitFetch('all');
         requestNotificationPermission();

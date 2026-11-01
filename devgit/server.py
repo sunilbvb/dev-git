@@ -5,6 +5,7 @@ import logging
 import os
 import socketserver
 import sys
+import threading
 import urllib.parse
 from pathlib import Path
 
@@ -29,6 +30,42 @@ WORKSPACE_ASSETS_DIR = ROOT_DIR / "workspace_assets"
 PORT = 8086
 HOST = "127.0.0.1"
 MAX_PAYLOAD_BYTES = 1_048_576  # 1 MB
+
+
+_HTTPD = None
+
+
+def _running_jobs() -> list:
+    with router._JOBS_LOCK:
+        return [j.get("command") or j.get("type") or "job" for j in router._JOBS.values() if j.get("status") in {"running", "stopping"}]
+
+
+def _shutdown_server(restart: bool) -> None:
+    """Runs on a timer thread after the HTTP response is flushed. Restart relaunches the same command line,
+    workspace and token (so the dashboard URL stays valid) once this process has released the port."""
+    import subprocess
+    import tempfile
+
+    if restart:
+        cmd = [sys.executable, os.path.abspath(sys.argv[0]), "--workspace", str(router.get_workspace_root()),
+               "--port", str(PORT), "--host", HOST]
+        env = dict(os.environ, DEVGIT_TOKEN=router.get_session_token())
+        log = open(os.path.join(tempfile.gettempdir(), "devgit-server.log"), "ab")
+        subprocess.Popen(["sh", "-c", 'sleep 1.5; exec "$@"', "sh", *cmd], env=env, stdin=subprocess.DEVNULL,
+                         stdout=log, stderr=log, start_new_session=True)
+    if _HTTPD is not None:
+        _HTTPD.shutdown()
+        _HTTPD.server_close()
+    os._exit(0)
+
+
+def _handle_server_control(handler, restart: bool, payload: dict) -> None:
+    busy = _running_jobs()
+    if busy and payload.get("force") is not True:
+        _write_json(handler, {"success": False, "error": f"{len(busy)} job(s) still running: {', '.join(busy)}. Wait or force.", "busy": busy})
+        return
+    _write_json(handler, {"success": True, "message": "Restarting server..." if restart else "Server stopping."})
+    threading.Timer(0.5, _shutdown_server, args=(restart,)).start()
 
 
 def _check_host_and_origin(handler) -> bool:
@@ -184,6 +221,24 @@ def _handle_workspace_switch(handler, data: dict):
     _write_json(handler, router.handle_workspace_switch(data))
 
 
+def _serve_app_icon(handler):
+    from devgit.modules.icons import load_app_icon
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(handler.path).query)
+    status, ctype, body = load_app_icon(
+        (query.get("url") or [""])[0],
+        [router.get_workspace_root(), WORKSPACE_ASSETS_DIR],
+    )
+    handler.send_response(status)
+    handler.send_header("Content-Type", ctype)
+    handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Cache-Control", "private, max-age=300")
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    if ctype == "image/svg+xml":
+        handler.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
 def _serve_apps_config(handler):
     config_file = WORKSPACE_ASSETS_DIR / "apps_config.json"
     if not config_file.exists():
@@ -230,6 +285,10 @@ class GitHandler(http.server.SimpleHTTPRequestHandler):
                 _write_json(self, router.serve_git_repos(self.path))
             elif self.path.startswith("/api/job"):
                 _serve_job(self)
+            elif self.path.startswith("/api/app-icon"):
+                _serve_app_icon(self)
+            elif self.path.startswith("/api/workspaces"):
+                _write_json(self, router.serve_saved_workspaces())
             elif self.path.startswith("/api/workspace"):
                 _serve_workspace(self)
             elif self.path.startswith("/api/apps/config"):
@@ -275,6 +334,10 @@ class GitHandler(http.server.SimpleHTTPRequestHandler):
                 _write_json(self, router.handle_git_fetch(payload))
             elif self.path.startswith("/api/job/stop"):
                 _handle_job_stop(self, payload)
+            elif self.path.startswith("/api/workspaces/save"):
+                _write_json(self, router.handle_workspace_save(payload))
+            elif self.path.startswith("/api/workspaces/remove"):
+                _write_json(self, router.handle_workspace_remove(payload))
             elif self.path.startswith("/api/workspace/switch"):
                 _handle_workspace_switch(self, payload)
             elif self.path.startswith("/api/git/sync-all-branches"):
@@ -317,10 +380,22 @@ class GitHandler(http.server.SimpleHTTPRequestHandler):
                 _write_json(self, router.handle_git_tag_delete(payload))
             elif self.path.startswith("/api/git/tag/push"):
                 _write_json(self, router.handle_git_tag_push(payload))
+            elif self.path.startswith("/api/git/branch/create-scoped"):
+                _write_json(self, router.handle_git_branch_create_scoped(payload))
             elif self.path.startswith("/api/git/branch/create"):
                 _write_json(self, router.handle_git_branch_create(payload))
             elif self.path.startswith("/api/git/branch/delete"):
                 _write_json(self, router.handle_git_branch_delete(payload))
+            elif self.path.startswith("/api/git/branch/finish"):
+                _write_json(self, router.handle_git_branch_finish(payload))
+            elif self.path.startswith("/api/server/restart"):
+                _handle_server_control(self, True, payload)
+            elif self.path.startswith("/api/server/stop"):
+                _handle_server_control(self, False, payload)
+            elif self.path.startswith("/api/git/release/all/preview"):
+                _write_json(self, router.handle_git_release_all_preview(payload))
+            elif self.path.startswith("/api/git/release/all/run"):
+                _write_json(self, router.handle_git_release_all_run(payload))
             elif self.path.startswith("/api/git/release/create"):
                 _write_json(self, router.handle_git_release_create(payload))
             elif self.path.startswith("/api/git/contributors"):
@@ -338,7 +413,7 @@ class GitHandler(http.server.SimpleHTTPRequestHandler):
 
 
 def main():
-    global PORT, HOST
+    global PORT, HOST, _HTTPD
     import argparse
     import threading
     import webbrowser
@@ -352,6 +427,10 @@ def main():
 
     target_workspace = Path(args.workspace).expanduser().resolve()
     router.set_workspace_root(target_workspace)
+    try:
+        router.add_workspace(target_workspace)
+    except OSError:
+        pass
     PORT = args.port
     HOST = args.host
     session_token = router.get_session_token()
@@ -372,6 +451,7 @@ def main():
 
     socketserver.ThreadingTCPServer.allow_reuse_address = True
     with socketserver.ThreadingTCPServer((HOST, PORT), GitHandler) as httpd:
+        _HTTPD = httpd
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

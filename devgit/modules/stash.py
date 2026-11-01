@@ -22,7 +22,7 @@ def serve_git_stashes(path_str: str) -> Dict[str, Any]:
     if target not in repos:
         return {"success": False, "error": "Unknown repoPath"}
 
-    code, out, err = run_git(target, ["stash", "list", "--format=%(gd)|%(stashhash)|%(refname)|%(subject)"])
+    code, out, err = run_git(target, ["stash", "list", "--format=%gd%x1f%H%x1f%gs"])
     if code != 0:
         return {"success": False, "error": err or "Failed to list stashes"}
 
@@ -30,14 +30,16 @@ def serve_git_stashes(path_str: str) -> Dict[str, Any]:
     for line in out.splitlines():
         if not line.strip():
             continue
-        parts = line.split("|")
-        index_str = parts[0].strip()
-        stash_hash = parts[1].strip() if len(parts) > 1 else ""
-        subject = parts[-1].strip() if len(parts) > 2 else line
+        ref, _, rest = line.partition("\x1f")
+        stash_hash, _, description = rest.partition("\x1f")
+        ref = ref.strip()
+        description = description.strip()
         stashes.append({
-            "index": index_str,
-            "hash": stash_hash,
-            "message": subject
+            "ref": ref,
+            "index": ref,
+            "hash": stash_hash.strip(),
+            "description": description,
+            "message": description,
         })
 
     return {"success": True, "stashes": stashes, "repo": str(target)}

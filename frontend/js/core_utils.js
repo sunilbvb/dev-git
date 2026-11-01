@@ -254,3 +254,21 @@ function pollSetupJob(jobId, consoleEl, installBtn, originalText, onComplete) {
     });
 }
 
+
+function showToast(message, type) {
+    try {
+        let box = document.getElementById('devgitToastBox');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'devgitToastBox';
+            box.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:3000;display:flex;flex-direction:column;gap:8px;max-width:380px;pointer-events:none;';
+            document.body.appendChild(box);
+        }
+        const colors = { success: '#16a34a', error: '#dc2626', info: '#2563eb' };
+        const el = document.createElement('div');
+        el.textContent = String(message == null ? '' : message);
+        el.style.cssText = 'padding:10px 14px;border-radius:8px;background:#0f172a;color:#f1f5f9;font-size:13px;box-shadow:0 8px 20px rgba(0,0,0,.4);border-left:4px solid ' + (colors[type] || colors.info) + ';';
+        box.appendChild(el);
+        setTimeout(() => el.remove(), 4500);
+    } catch (_) { /* toasts must never break the caller */ }
+}

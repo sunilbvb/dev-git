@@ -1,15 +1,7 @@
 // ==========================================
 // Gitflow Developer Console Implementation
 // ==========================================
-const escapeHtml = (typeof window !== 'undefined' && window.escapeHtml) ? window.escapeHtml : function(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-};
+// escapeHtml is provided globally by js/core_utils.js
 
 let _selectedGitflowRepo = null;
 const _gitflowStateByRepo = new Map();
@@ -137,6 +129,7 @@ window.selectGitflowRepo = async function selectGitflowRepo(repoPath, cardElemen
                 realBranches.splice(hasMain ? 1 : 0, 0, { name: "develop", type: "DEVELOP", baseBranch: "main", commitsAhead: 0, commitsBehind: 0, isMerged: false, qaSignal: "Passed" });
             }
 
+            state.pubspecVersion = data.pubspecVersion || '';
             state.branches = realBranches;
             state.activeBranchesCount = realBranches.length;
 
@@ -358,12 +351,20 @@ window.openGitflowBranchModal = (type = 'feature', branchName = '') => {
     document.getElementById('gitflowBranchType').value = type.toLowerCase();
     document.getElementById('gitflowTicketName').value = branchName ? branchName.split('/').pop() + "-split" : "referral-program";
     
-    // Automatically suggest version namespace prefixed by clean repository name ONLY for packages (not apps)
+    // Prefill the version scope from pubspec.yaml (build number dropped: 1.0.8+185 -> v1.0.8); packages are prefixed by repo name.
     const repoDir = _selectedGitflowRepo ? _selectedGitflowRepo.split('/').pop() : '';
     const cleanRepoName = repoDir.toLowerCase().replace(/_/g, '-');
     const isApp = _selectedGitflowRepo && _selectedGitflowRepo.includes('/apps/');
-    const defaultScope = (isApp || !cleanRepoName) ? 'v1.1.3' : `${cleanRepoName}-v1.1.3`;
+    const pubspecVersion = state && state.pubspecVersion ? state.pubspecVersion : '';
+    const baseVersion = pubspecVersion ? 'v' + pubspecVersion.replace(/^v/, '').split('+')[0] : '';
+    const defaultScope = !baseVersion ? '' : (isApp || !cleanRepoName) ? baseVersion : `${cleanRepoName}-${baseVersion}`;
     document.getElementById('gitflowVersionScope').value = defaultScope;
+    const hintEl = document.getElementById('gitflowVersionScopeHint');
+    if (hintEl) {
+        hintEl.textContent = pubspecVersion
+            ? `Prefilled from pubspec.yaml (${pubspecVersion}); edit if this branch targets another version.`
+            : 'No version found in pubspec.yaml; enter one manually.';
+    }
 
     updateGitflowModalOutputs(true);
     modal.classList.remove('hidden');
@@ -883,7 +884,7 @@ window.openGitflowPR = (name, base) => {
 
 window.finishGitflowBranch = async (event, name, base) => {
     if (!_selectedGitflowRepo) return;
-    const confirmFinish = confirm(`Are you sure you want to finish branch "${name}"?\n\nThis will:\n1. Merge "${name}" into "${base}"\n2. Push "${base}" to GitHub\n3. Delete "${name}" locally and remotely on GitHub.`);
+    const confirmFinish = confirm(`Are you sure you want to finish branch "${name}"?\n\nThis will:\n1. Merge "${name}" into "${base}"\n2. Push "${base}" to GitHub\n\nThe branch "${name}" is kept (not deleted).`);
     if (!confirmFinish) return;
 
     const btn = event.target;
@@ -915,7 +916,7 @@ window.finishGitflowBranch = async (event, name, base) => {
             }
             return;
         }
-        showGitflowToast("Branch Finished", `Successfully merged and cleaned up ${name}.`);
+        showGitflowToast("Branch Finished", `Merged ${name} into ${base}. Branch kept.`);
         selectGitflowRepo(_selectedGitflowRepo); // Refresh console
     } catch (err) {
         alert("❌ Network Error: " + err.message);
